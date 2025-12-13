@@ -1,0 +1,20 @@
+[Unit]
+Description=Website Watcher (ArchiveBox-backed)
+After=network.target
+
+[Service]
+Type=simple
+User=website-watcher
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+WorkingDirectory=/var/lib/website-watcher
+ExecStart=/usr/bin/env python -m src.main run
+Restart=on-failure
+RestartSec=60
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

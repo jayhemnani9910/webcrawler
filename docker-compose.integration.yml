@@ -1,0 +1,18 @@
+version: '3.8'
+services:
+  otsd-sim:
+    build: ./services/otsd-sim
+    volumes:
+      - ./services/otsd-sim/data:/data
+    ports:
+      - "8080:8080"
+
+  ipfs:
+    image: ipfs/kubo:release
+    ports:
+      - "5001:5001"
+    volumes:
+      - ipfs_data:/data/ipfs
+
+volumes:
+  ipfs_data:

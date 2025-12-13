@@ -1,0 +1,19 @@
+{
+  "name": "libp2p-relay",
+  "version": "0.1.0",
+  "description": "Minimal HTTP bridge to a js-libp2p node for pubsub and peer info (for local dev)",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "body-parser": "^1.20.2",
+    "@libp2p/js-libp2p": "^0.43.0",
+    "@libp2p/mplex": "^0.12.4",
+    "@libp2p/tcp": "^0.18.3",
+    "@libp2p/websockets": "^0.18.3",
+    "@libp2p/bootstrap": "^0.18.3",
+    "it-length-prefixed": "^3.0.0"
+  }
+}

@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  watcher:
+    build: .
+    image: webcrawler/watcher:latest
+    env_file:
+      - .env.prod
+    volumes:
+      - watcher_db:/var/lib/website-watcher
+      - ./logs:/app/logs
+      - ./archivebox_data:/app/archivebox_data
+    ports:
+      - "1212:5000"
+    depends_on:
+      - ipfs
+      - archivebox
+    restart: unless-stopped
+
+  archivebox:
+    image: origin/archivebox:latest
+    environment:
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - archivebox_data:/data
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  ipfs:
+    image: ipfs/go-ipfs:latest
+    volumes:
+      - ipfs_data:/data/ipfs
+    ports:
+      - "4001:4001"
+      - "5001:5001"
+    restart: unless-stopped
+
+  libp2p_relay:
+    build: ./services/libp2p-relay
+    image: webcrawler/libp2p-relay:latest
+    ports:
+      - "15000:15000"
+    restart: unless-stopped
+
+  otsd:
+    build: ./services/otsd-sim
+    image: webcrawler/otsd-sim:latest
+    volumes:
+      - otsd_data:/data/ots
+    environment:
+      - PORT=16000
+    ports:
+      - "16000:16000"
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+volumes:
+  watcher_db:
+  archivebox_data:
+  ipfs_data:
+  otsd_data:
+

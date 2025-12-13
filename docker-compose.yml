@@ -1,0 +1,19 @@
+version: '3.8'
+services:
+  watcher:
+    build: .
+    volumes:
+      - ./watcher.db:/app/watcher.db
+      - ./logs:/app/logs
+      - ./backups:/app/backups
+    environment:
+      - FLASK_ENV=production
+    ports:
+      - "1212:5000"
+  archivebox:
+    image: origin/ArchiveBox:latest
+    # Note: configure volumes for persistent archive storage
+    volumes:
+      - ./archivebox_data:/data
+    ports:
+      - "8000:8000"

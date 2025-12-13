@@ -1,0 +1,63 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+eggs/
+.eggs/
+*.egg-info/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Environment variables
+.env
+.env.local
+
+# IDE/Editor
+.vscode/
+.idea/
+.claude/
+*.swp
+*.swo
+*~
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite
+watcher.db
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# Keys/Secrets
+keys/
+secrets/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# ML Models
+*.pt
+*.pth
+*.onnx
+*.bin

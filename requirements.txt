@@ -1,0 +1,10 @@
+requests
+beautifulsoup4
+lxml
+readability-lxml
+python-dateutil
+apscheduler
+Flask
+prometheus_client
+pynacl==1.5.0
+cryptography==41.0.7
