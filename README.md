@@ -1,123 +1,116 @@
-Website Watcher using ArchiveBox
+# Website Archiver & Change Detection System
 
-This project implements a local "website watcher" that uses ArchiveBox to snapshot pages and a small Python service to:
-- discover pages (sitemap + limited internal links)
-- submit pages to ArchiveBox
-- extract readable text and images from ArchiveBox snapshots
-- compute stable content hashes and detect changes
-- store site/page/version/change metadata in a local SQLite database
-- run every 2 hours (scheduler)
+A production-ready website monitoring and archival system built on ArchiveBox. Automatically discovers, snapshots, and tracks changes across websites with full-text search, cryptographic verification, and distributed storage capabilities.
 
-Requirements
-- Python 3.10+
-- ArchiveBox installed and available on PATH (see https://archivebox.io)
-- Install Python deps: pip install -r requirements.txt
+![Python](https://img.shields.io/badge/python-3.10%2B-blue)
+![Flask](https://img.shields.io/badge/Flask-API-green)
+![Docker](https://img.shields.io/badge/Docker-ready-blue)
 
-Quick start
-1. Configure ArchiveBox (make sure `archivebox` CLI works).
-2. Install deps:
-```
+## Overview
+
+This project implements an intelligent website watcher that combines ArchiveBox's powerful archival capabilities with advanced change detection, distributed storage, and cryptographic verification. Perfect for compliance monitoring, research archival, competitive intelligence, or preserving important web content.
+
+## Key Features
+
+- **Intelligent Discovery**: Automatic sitemap parsing and internal link crawling with robots.txt compliance
+- **Change Detection**: Content-hash based change tracking with stable diff algorithms
+- **Full-Text Search**: SQLite FTS5 powered search across all archived versions
+- **Distributed Storage**: Optional IPFS integration for decentralized content preservation
+- **Cryptographic Verification**: Merkle trees and content anchoring for authenticity
+- **Production Ready**: Systemd timers, Docker support, Prometheus metrics, health checks
+- **Web Interface**: Flask-based UI for search, monitoring, and site management
+- **Automated Scheduling**: Configurable intervals (default: every 2 hours)
+
+## Technology Stack
+
+| Category | Technologies |
+|----------|-------------|
+| **Core** | Python 3.10+, ArchiveBox, SQLite (FTS5) |
+| **Web** | Flask, BeautifulSoup4, lxml, readability-lxml |
+| **Scheduling** | APScheduler, Systemd timers |
+| **Crypto** | PyNaCl, Cryptography, Merkle trees |
+| **Monitoring** | Prometheus, Health checks |
+| **Storage** | IPFS (optional), SQLite |
+
+## Quick Start
+
+```bash
+# Prerequisites: Install ArchiveBox
+pip install archivebox && archivebox init
+
+# Clone and install
+git clone https://github.com/jayhemnani9910/webcrawler.git
+cd webcrawler
 pip install -r requirements.txt
-```
-3. Add and run a site watcher:
-```
+
+# Add a site and run
 python -m src.main add-site https://example.com
 python -m src.main run
+
+# Search archived content
+python -m src.main search "query"
+
+# Launch web UI
+python -m src.main web  # http://localhost:5000
 ```
 
-New useful commands
-- `python -m src.main add-site <url> --agent "MyAgent/1.0"` — add site with custom user-agent
-- `python -m src.main status` — show tracked sites and basic stats
-- `python -m src.main web` — run minimal web UI (Flask)
-- `python -m src.main search "query"` — full-text search over archived page versions (requires SQLite FTS5)
+## Production Deployment
 
-ArchiveBox index JSON
-- For more reliable ArchiveBox snapshot lookup you can provide a pre-generated `archivebox list --json` output file. Set it with:
+### Docker
 
-```
-python -m src.main archive-index-set /path/to/archivebox_list.json
-```
-Or set the `ARCHIVEBOX_INDEX_JSON` environment variable to point to that file.
+```bash
+docker compose up -d --build
 
-Robots parsing
-- This project uses `reppy` when available for robust robots.txt parsing. If `reppy` is not installed, it falls back to Python's built-in `RobotFileParser`. Install `reppy` for best compliance:
-
-```
-pip install reppy
+# Production with Prometheus + Grafana
+docker compose -f docker-compose.prod.yml up -d
 ```
 
-Files
-- `src/db.py` - sqlite schema and simple helpers
-- `src/crawler.py` - discovery, scheduling, and crawl orchestration
-- `src/archivebox_interface.py` - wrapper to call ArchiveBox CLI
-- `src/utils.py` - normalization, extraction, hashing, diff helpers
-- `src/main.py` - CLI and scheduler entrypoint
-
-Systemd and cron
-- Examples for a systemd service and timer are in `systemd/website-watcher.service` and `systemd/website-watcher.timer`.
-- A crontab example is in `CRON.md`.
-
-Deployment & monitoring
-
-Basic deployment steps:
-
-1. Install systemd units and timer (requires root):
+### Systemd
 
 ```bash
 sudo ./install_service.sh
+sudo systemctl enable website-watcher.timer
+sudo systemctl start website-watcher.timer
 ```
 
-2. The installer creates `/etc/default/website-watcher` where you can set `WPS_DB_PATH` and `ARCHIVEBOX_INDEX_JSON`.
-
-3. For containerized deployments, use the included `Dockerfile` and `docker-compose.yml` to run the watcher and (optionally) an ArchiveBox service. Ensure volumes are configured for persistent archive storage and the DB.
-For production deployments, a `docker-compose.prod.yml` is provided to run a full stack (watcher, ArchiveBox, IPFS, Prometheus, Grafana). Example:
+## API
 
 ```bash
-docker compose -f docker-compose.prod.yml up -d --build
+# Search endpoint
+GET /api/search?q={query}
+
+# Health check
+GET /health
+
+# Prometheus metrics
+GET /metrics
 ```
 
-Ensure you edit `.env.prod` to set `WPS_DB_PATH` and `ARCHIVEBOX_INDEX_JSON` as appropriate, and map volumes for `archivebox_data` and `ipfs_data` to persistent storage.
+## Project Structure
 
-Monitoring
----
+```
+webcrawler/
+├── src/
+│   ├── main.py              # CLI and scheduler
+│   ├── crawler.py           # Discovery and orchestration
+│   ├── archivebox_interface.py
+│   ├── db.py                # SQLite schema
+│   ├── crypto.py            # Cryptographic utilities
+│   ├── merkle.py            # Merkle tree implementation
+│   └── ipfs_interface.py    # IPFS storage layer
+├── systemd/                 # Service units
+├── docker-compose.yml
+└── scripts/backup_db.sh
+```
 
-- A `/health` endpoint is available for basic liveness checks.
-- If `prometheus_client` is installed, a `/metrics` endpoint exposes a simple counter for search requests; install `prometheus_client` via pip to enable this.
+## Use Cases
 
-Backups
----
+- Compliance monitoring and regulatory tracking
+- Research archival and citation preservation
+- Competitive intelligence
+- Content preservation before deletion
+- Change auditing with verifiable records
 
-- A simple DB backup script is provided at `scripts/backup_db.sh`. Schedule it via cron or systemd timer to periodically dump and gzip the SQLite DB.
+## License
 
-Security & hardening (starter checklist)
----
-
-- Run the watcher as a dedicated system user (installer will create `website-watcher` system user).
-- Keep `watcher.db` and ArchiveBox outputs on a secure filesystem and back them up regularly.
-- Validate and limit user-supplied inputs in the UI (query length limits applied).
-- When exposing the web UI publicly, run behind a reverse proxy and enforce TLS.
-
-Notes
-- This is intentionally conservative: it only follows same-domain URLs and respects robots.txt.
-- ArchiveBox is the storage engine — this code delegates actual downloads to ArchiveBox.
-
-API
----
-
-The watcher exposes a small JSON search API for automation and integrations:
-
-- GET /api/search?q={query}
-	- Response: JSON object { "results": [ { "page_version_id": int, "content_hash": str, "site_id": int|null, "archived_at": str|null, "snippet": str }, ... ] }
-	- Example: curl "http://localhost:5000/api/search?q=Anthropic"
-
-The web UI supports pagination (page/per_page) and facets; the JSON API returns up to 100 results by default.
-
-Systemd / Scheduling
----
-
-Examples for a systemd service and timer are provided in `systemd/website-watcher.service` and `systemd/website-watcher.timer`. Use `install_service.sh` to install the timer on systems running systemd. The project falls back to cron if systemd is not available.
-
-Notes on optional dependencies
----
-
-`reppy` is optional but recommended for robust robots.txt parsing; it can require a C/C++ toolchain to compile. If `reppy` installation fails, the project will use Python's `urllib.robotparser` as a fallback.
+MIT
