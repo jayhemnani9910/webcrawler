@@ -1,3 +1,5 @@
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Open-2ea44f?style=for-the-badge)](https://jayhemnani9910.github.io/webcrawler/)
+
 # Website Archiver & Change Detection System
 
 A production-ready website monitoring and archival system built on ArchiveBox. Automatically discovers, snapshots, and tracks changes across websites with full-text search, cryptographic verification, and distributed storage capabilities.
