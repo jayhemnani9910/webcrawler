@@ -1,12 +1,13 @@
 import argparse
 import time
 import logging
+import os
 from logging.handlers import RotatingFileHandler
 from apscheduler.schedulers.blocking import BlockingScheduler
 from pathlib import Path
 
 # configure root logger with rotating file handler
-LOGDIR = Path('/home/jey/projects/webcrawler/logs')
+LOGDIR = Path(os.getenv("WPS_LOG_DIR", "./logs"))
 LOGDIR.mkdir(parents=True, exist_ok=True)
 LOGFILE = str(LOGDIR / 'website-watcher.log')
 handler = RotatingFileHandler(LOGFILE, maxBytes=5_000_000, backupCount=5)

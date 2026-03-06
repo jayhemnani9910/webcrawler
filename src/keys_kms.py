@@ -80,13 +80,58 @@ def get_provider() -> KMSProvider:
                     self.client = hvac.Client(url=VAULT_ADDR, token=VAULT_TOKEN)
 
                 def sign(self, key_id: str, data: bytes) -> bytes:
-                    # This is a placeholder: implementation depends on transit engine
-                    resp = self.client.secrets.transit.sign_data(name=key_id, hash=data.hex())
-                    return bytes.fromhex(resp['data']['signature'])
+                    """Sign data using Vault transit engine.
+
+                    Args:
+                        key_id: The name of the transit key in Vault
+                        data: The data to sign
+
+                    Returns:
+                        The signature as bytes (Vault signature string encoded as bytes)
+                    """
+                    try:
+                        # Vault transit sign_data expects hash_input as base64 or hex
+                        resp = self.client.secrets.transit.sign_data(
+                            name=key_id,
+                            hash_input=data.hex()
+                        )
+                        # Vault returns signature in format "vault:v1:BASE64_SIG"
+                        # Return as bytes for consistency with interface
+                        vault_sig = resp['data']['signature']
+                        return vault_sig.encode('utf-8')
+                    except Exception as e:
+                        logger.error(f'Vault signing failed for key {key_id}: {e}')
+                        raise
 
                 def verify(self, key_id: str, data: bytes, signature: bytes) -> bool:
-                    # Placeholder
-                    return True
+                    """Verify signature using Vault transit engine.
+
+                    Args:
+                        key_id: The name of the transit key in Vault
+                        data: The original data that was signed
+                        signature: The signature bytes to verify
+
+                    Returns:
+                        True if signature is valid, False otherwise
+                    """
+                    try:
+                        # Convert signature bytes back to string
+                        # Signature should be in format "vault:v1:BASE64_SIG"
+                        vault_sig = signature.decode('utf-8') if isinstance(signature, bytes) else signature
+
+                        # Vault transit verify_signed_data expects hash_input and signature
+                        resp = self.client.secrets.transit.verify_signed_data(
+                            name=key_id,
+                            hash_input=data.hex(),
+                            signature=vault_sig
+                        )
+
+                        # The response contains a 'valid' field indicating verification result
+                        return resp.get('data', {}).get('valid', False)
+                    except Exception as e:
+                        # Log the error for debugging but return False for verification failure
+                        logger.warning(f'Vault verification failed for key {key_id}: {e}')
+                        return False
 
             logger.info('Using Vault KMS provider')
             return VaultProvider()

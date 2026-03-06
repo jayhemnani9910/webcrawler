@@ -5,11 +5,15 @@ and attempts to upgrade/verify them using `src/anchor_ots` helpers. Marks
 `proof_verified=1` in DB when verification succeeds.
 """
 import time
-from .db import get_conn
-from ..src.anchor_ots import upgrade_ots, verify_ots, fetch_proof
-from ..src.anchor_ots import stamp_hash
-from pathlib import Path
+import sys
 import logging
+from pathlib import Path
+
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from db import get_conn
+from anchor_ots import upgrade_ots, verify_ots, fetch_proof, stamp_hash
 
 logger = logging.getLogger(__name__)
 
