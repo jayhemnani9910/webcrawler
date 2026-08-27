@@ -24,7 +24,7 @@ def normalize_url(url: str, root_netloc: str) -> str:
     qs = [(k, v) for k, v in parse_qsl(p.query, keep_blank_values=True) if not TRACKING_PARAMS.match(k)]
     query = urlencode(qs)
     # enforce same domain
-    if netloc.endswith(root_netloc):
+    if netloc == root_netloc or netloc.endswith('.' + root_netloc):
         netloc = root_netloc
     return urlunparse((scheme, netloc, path.rstrip('/') or '/', '', query, ''))
 
