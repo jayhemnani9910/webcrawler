@@ -194,7 +194,7 @@ def add_site(root_url, normalized_root, user_agent=None):
     cur.execute("INSERT OR IGNORE INTO Sites (root_url, normalized_root, active, status) VALUES (?, ?, 1, 'ok')",
                 (root_url, normalized_root))
     conn.commit()
-    site_id = cur.execute("SELECT id FROM Sites WHERE normalized_root=?", (normalized_root,)).fetchone()[0]
+    site_id = cur.execute("SELECT id FROM Sites WHERE root_url=?", (root_url,)).fetchone()[0]
     if user_agent:
         cur.execute("UPDATE Sites SET user_agent=? WHERE id=?", (user_agent, site_id))
         conn.commit()
