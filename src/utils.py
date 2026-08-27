@@ -1,9 +1,9 @@
+import difflib
 import re
 from urllib.parse import urlparse, urljoin, urlunparse, parse_qsl, urlencode
 import hashlib
 from bs4 import BeautifulSoup
 from readability import Document
-import json
 
 TRACKING_PARAMS = re.compile(r'^(utm_|fbclid$|gclid$)', re.I)
 
@@ -64,7 +64,6 @@ def extract_image_urls(html: str, base_url: str) -> list:
     return list(dict.fromkeys(imgs))
 
 def compute_diff(old_text: str, new_text: str) -> (str, str):
-    import difflib
     old_lines = old_text.splitlines()
     new_lines = new_text.splitlines()
     diff = list(difflib.unified_diff(old_lines, new_lines, lineterm=''))

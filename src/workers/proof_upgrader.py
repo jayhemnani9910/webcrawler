@@ -13,7 +13,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from db import get_conn
-from anchor_ots import upgrade_ots, verify_ots, fetch_proof, stamp_hash
+from anchor_ots import upgrade_ots, verify_ots, fetch_proof
 
 logger = logging.getLogger(__name__)
 

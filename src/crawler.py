@@ -201,6 +201,8 @@ class SiteWatcher:
         for row in rows:
             page_id = row['id']
             url = row['url']
+            last_ver = db.latest_page_version(page_id)
+            archive_entry = None
             # check robots for this specific url
             ua = site_row.get('user_agent') or USER_AGENT
             if parser:
@@ -285,7 +287,7 @@ class SiteWatcher:
                 pass
             # try to store archive provenance (best-effort)
             try:
-                if 'archive_entry' in locals() and archive_entry:
+                if archive_entry:
                     conn = db.get_conn()
                     cur = conn.cursor()
                     cur.execute('UPDATE PageVersions SET archive_source=? WHERE id=?', (json.dumps(archive_entry), new_vid))

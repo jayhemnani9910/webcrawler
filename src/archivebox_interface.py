@@ -1,6 +1,5 @@
 import subprocess
 import json
-import shlex
 from typing import Optional
 import os
 from pathlib import Path
@@ -34,8 +33,7 @@ def archive_url(url: str, archivebox_args: Optional[list]=None) -> dict:
                 except Exception as e2:
                     last_exc = e2
             # wait briefly before retrying
-            import time as _t
-            _t.sleep(1 + attempt)
+            time.sleep(1 + attempt)
             continue
     return {"error": str(last_exc), "stderr": getattr(last_exc, 'stderr', '')}
 
