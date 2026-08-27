@@ -143,8 +143,8 @@ class SiteWatcher:
         root = site_row['normalized_root']
         site_id = site_row['id']
         # load robots and crawl_delay
-        robots_txt = site_row.get('robots_txt') or ''
-        crawl_delay = site_row.get('crawl_delay') or 1
+        robots_txt = site_row['robots_txt'] or ''
+        crawl_delay = site_row['crawl_delay'] or 1
         parser = None
         try:
             if _HAS_REPPY:
@@ -169,7 +169,7 @@ class SiteWatcher:
         candidates = set(sitemap_urls)
         try:
             # respect robots and crawl-delay before fetching
-            ua = site_row.get('user_agent') or USER_AGENT
+            ua = site_row['user_agent'] or USER_AGENT
             if parser:
                 try:
                     if _HAS_REPPY:
@@ -204,7 +204,7 @@ class SiteWatcher:
             last_ver = db.latest_page_version(page_id)
             archive_entry = None
             # check robots for this specific url
-            ua = site_row.get('user_agent') or USER_AGENT
+            ua = site_row['user_agent'] or USER_AGENT
             if parser:
                 try:
                     if _HAS_REPPY:
@@ -238,7 +238,7 @@ class SiteWatcher:
                 # try conditional GET using last archived timestamp if available
                 lm = None
                 if last_ver:
-                    lm = last_ver.get('archived_at')
+                    lm = last_ver['archived_at']
                 status, resp_headers, body = http_get(url, headers={'User-Agent': ua}, last_modified=lm, retries=2)
                 if status == 200 and body:
                     html = body
@@ -263,7 +263,7 @@ class SiteWatcher:
                 continue
             # compute content hash chain (prototype: merkle root of previous and current)
             if last_ver:
-                prev_hash = last_ver.get('content_hash') or ''
+                prev_hash = last_ver['content_hash'] or ''
                 chain_root = merkle.merkle_root([prev_hash.encode('utf-8'), h.encode('utf-8')]).hex()
             else:
                 chain_root = merkle.merkle_root([h.encode('utf-8')]).hex()
