@@ -73,7 +73,7 @@ def main():
     if args.cmd == 'search':
         rows = db.search_page_versions(args.query, limit=20)
         for r in rows:
-            print(r['page_version_id'], r.get('snippet') or '')
+            print(r['page_version_id'], r['snippet'] or '')
         return
     if args.cmd == 'run':
         sched = BlockingScheduler()
