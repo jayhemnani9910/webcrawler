@@ -135,8 +135,14 @@ def site_edit(site_id):
 def search():
   q = request.args.get('q')
   results = []
-  page = int(request.args.get('page') or 1)
-  per_page = int(request.args.get('per_page') or 10)
+  try:
+    page = int(request.args.get('page') or 1)
+  except ValueError:
+    page = 1
+  try:
+    per_page = int(request.args.get('per_page') or 10)
+  except ValueError:
+    per_page = 10
   if q:
     # optional filters
     site_filter = request.args.get('site')
@@ -279,7 +285,7 @@ def api_search():
 @app.route('/api/merkle/push', methods=['POST'])
 def api_merkle_push():
     data = request.get_json(force=True)
-    if not data:
+    if not data or not isinstance(data, dict):
         return {'error': 'no data'}, 400
     delta = data.get('delta')
     signature = data.get('signature')
