@@ -40,7 +40,7 @@ def parse_sitemap_urls(root_url):
             soup = BeautifulSoup(r.content, 'lxml')
             for loc in soup.find_all('loc'):
                 u = loc.text.strip()
-                if urlparse(u).netloc.endswith(urlparse(root_url).netloc):
+                if utils.is_same_site(urlparse(u).netloc, urlparse(root_url).netloc):
                     found.add(u)
         except Exception:
             continue
@@ -55,7 +55,7 @@ def extract_internal_links(html, base_url, root_netloc, limit=50):
             continue
         full = urljoin(base_url, href)
         p = urlparse(full)
-        if not p.netloc.endswith(root_netloc):
+        if not utils.is_same_site(p.netloc, root_netloc):
             continue
         # very basic deny rules
         if any(x in p.path.lower() for x in ['/login', '/admin', '/signup', '/search']):

@@ -75,3 +75,15 @@ def compute_diff(old_text: str, new_text: str) -> (str, str):
         elif line.startswith('-') and not line.startswith('---'):
             removed.append(line[1:])
     return '\n'.join(added), '\n'.join(removed)
+
+
+def is_same_site(netloc: str, root_netloc: str) -> bool:
+    """True when netloc is root_netloc or a subdomain of it.
+
+    A plain endswith() lets "notexample.com" pass against "example.com", so the
+    subdomain arm needs the leading dot. normalize_url already applies this rule;
+    this is the same test for callers that only need the yes/no answer.
+    """
+    netloc = (netloc or '').lower()
+    root_netloc = (root_netloc or '').lower()
+    return netloc == root_netloc or netloc.endswith('.' + root_netloc)
