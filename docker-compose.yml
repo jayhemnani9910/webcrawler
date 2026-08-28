@@ -3,11 +3,17 @@ services:
   watcher:
     build: .
     volumes:
-      - ./watcher.db:/app/watcher.db
+      # This used to bind-mount ./watcher.db read-write, handing the container
+      # write access to the only copy of the real data. watcher.db is gitignored
+      # and untracked, so git could not restore it. Now that src/db.py reads
+      # WPS_DB_PATH (F071), the container gets its own named volume instead and
+      # never touches the host database. docker-compose.prod.yml already did this.
+      - watcher_db:/var/lib/website-watcher
       - ./logs:/app/logs
       - ./backups:/app/backups
     environment:
-      - FLASK_ENV=production
+      # FLASK_ENV was removed in Flask 2.3 and is read by nothing here.
+      - WPS_DB_PATH=/var/lib/website-watcher/watcher.db
     ports:
       - "1212:1212"
   archivebox:
@@ -17,3 +23,6 @@ services:
       - ./archivebox_data:/data
     ports:
       - "8000:8000"
+
+volumes:
+  watcher_db:
