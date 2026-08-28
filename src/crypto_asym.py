@@ -67,12 +67,12 @@ def verify_with_public_key(data: bytes, sig_hex: str, pub_bytes: bytes) -> bool:
         except Exception:
             return False
     else:
-        # fallback: libsodium not available — delegate to verify_bytes which
-        # implements the same HMAC-based fallback used for signing.
-        try:
-            return verify_bytes(data, sig_hex)
-        except Exception:
-            return False
+        # fallback: libsodium not available. Signing degrades to symmetric HMAC,
+        # and an HMAC cannot be checked against somebody else's public key.
+        # Delegating to verify_bytes here checked the signature against OUR OWN
+        # key and ignored pub_bytes entirely, so a signature made by any other
+        # party verified as valid. Refuse instead of answering wrongly.
+        return False
 
 
 def _get_kms_provider():
