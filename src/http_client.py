@@ -19,6 +19,11 @@ def get(url: str, headers: Optional[dict]=None, etag: Optional[str]=None, last_m
     for attempt in range(retries):
         try:
             r = requests.get(url, headers=hdrs, timeout=timeout)
+            if 'charset' not in r.headers.get('content-type', '').lower():
+                # requests falls back to ISO-8859-1 for any text/* response whose
+                # Content-Type declares no charset, so a UTF-8 page comes back as
+                # mojibake. Sniff the body instead when the server did not say.
+                r.encoding = r.apparent_encoding or r.encoding
             return r.status_code, r.headers, (r.text if r.status_code != 304 else '')
         except Exception as e:
             last_exc = e
