@@ -53,7 +53,7 @@ python -m src.main run
 python -m src.main search "query"
 
 # Launch web UI
-python -m src.main web  # http://localhost:5000
+python -m src.main web  # http://localhost:1212
 ```
 
 ## Production Deployment

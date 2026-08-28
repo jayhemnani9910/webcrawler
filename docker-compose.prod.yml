@@ -11,7 +11,7 @@ services:
       - ./logs:/app/logs
       - ./archivebox_data:/app/archivebox_data
     ports:
-      - "1212:5000"
+      - "1212:1212"
     depends_on:
       - ipfs
       - archivebox

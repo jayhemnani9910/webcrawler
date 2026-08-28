@@ -9,7 +9,7 @@ services:
     environment:
       - FLASK_ENV=production
     ports:
-      - "1212:5000"
+      - "1212:1212"
   archivebox:
     image: origin/ArchiveBox:latest
     # Note: configure volumes for persistent archive storage
