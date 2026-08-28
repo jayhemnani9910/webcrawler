@@ -1,0 +1,4 @@
+# docker-compose.integration.yml bind-mounts this directory to /data in the
+# otsd-sim container, so it has to exist in the repo. It holds no fixtures: the
+# two .proof files that used to sit here were leftover runtime state, and the
+# app writes to /data/ots at runtime, not here.
