@@ -11,6 +11,14 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . /app
 
+# The container ran as root, so every file it wrote, including the database and
+# anything under keys/, was created root-owned. Create an unprivileged user and
+# give it the app directory and the data directory the compose files mount.
+RUN useradd --system --create-home --shell /usr/sbin/nologin watcher \
+    && mkdir -p /var/lib/website-watcher \
+    && chown -R watcher:watcher /app /var/lib/website-watcher
+USER watcher
+
 ENV FLASK_APP=src.main
 EXPOSE 1212
 
