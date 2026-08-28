@@ -1,5 +1,6 @@
 from flask import Flask, render_template_string, abort, request, redirect, url_for, jsonify
 from . import db
+import os
 try:
   from prometheus_client import generate_latest, Counter, CollectorRegistry, CONTENT_TYPE_LATEST
   PROM_AVAILABLE = True
@@ -9,6 +10,27 @@ except Exception:
   PROM_AVAILABLE = False
 
 app = Flask(__name__)
+
+
+def _require_admin():
+    """Gate the /admin/* routes behind a shared secret.
+
+    These routes read operational state and, in the case of crisis_mode, change
+    it. They had no authentication of any kind, so anyone who could reach the
+    port could flip crisis mode. The token comes from WPS_ADMIN_TOKEN; when that
+    is unset the routes refuse rather than defaulting open, because an
+    unconfigured deployment is exactly the one most likely to be exposed.
+
+    Returns None when the caller is allowed, or a Flask response tuple to return.
+    """
+    import hmac as _hmac
+    expected = os.environ.get('WPS_ADMIN_TOKEN')
+    if not expected:
+        return jsonify({'error': 'admin routes disabled: WPS_ADMIN_TOKEN is not set'}), 503
+    supplied = request.headers.get('X-Admin-Token', '')
+    if not _hmac.compare_digest(supplied, expected):
+        return jsonify({'error': 'unauthorized'}), 401
+    return None
 
 INDEX_TMPL = '''
 <h1>Watched sites</h1>
@@ -212,6 +234,9 @@ def metrics():
 
 @app.route('/admin/metrics')
 def admin_metrics():
+    denied = _require_admin()
+    if denied:
+        return denied
     # aggregate counts from DB
     conn = db.get_conn()
     cur = conn.cursor()
@@ -225,6 +250,9 @@ def admin_metrics():
 
 @app.route('/admin/global_preservation_health')
 def global_preservation_health():
+    denied = _require_admin()
+    if denied:
+        return denied
     conn = db.get_conn()
     cur = conn.cursor()
     # aggregate preservation metrics
@@ -238,6 +266,9 @@ def global_preservation_health():
 
 @app.route('/admin/crisis_mode', methods=['GET', 'POST'])
 def admin_crisis_mode():
+    denied = _require_admin()
+    if denied:
+        return denied
     conn = db.get_conn()
     cur = conn.cursor()
     if request.method == 'POST':
