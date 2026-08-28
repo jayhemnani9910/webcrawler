@@ -11,7 +11,7 @@ services:
     ports:
       - "1212:1212"
   archivebox:
-    image: origin/ArchiveBox:latest
+    image: archivebox/archivebox:latest
     # Note: configure volumes for persistent archive storage
     volumes:
       - ./archivebox_data:/data
