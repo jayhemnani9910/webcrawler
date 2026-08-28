@@ -45,7 +45,6 @@ logs/
 watcher.db
 
 # Docker
-.dockerignore
 docker-compose.override.yml
 
 # Keys/Secrets

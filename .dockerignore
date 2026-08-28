@@ -1,0 +1,24 @@
+# Keep secrets and live data out of the build context.
+# Dockerfile line 12 is COPY . /app, so anything not listed here is baked into
+# the image and readable by anyone who can pull it.
+keys/
+watcher.db
+watcher.db-journal
+backups/
+logs/
+.env
+.env.prod
+*.key
+*.pem
+
+# Build and dev noise that has no business in the image.
+.git/
+.github/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+.remember/
+node_modules/
+archivebox_data/
