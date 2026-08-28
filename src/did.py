@@ -40,10 +40,17 @@ def resolve_did_to_public_key(did: str) -> bytes:
     if not did or not did.startswith('did:example:'):
         raise ValueError('Unsupported DID method')
     s = did.split(':', 2)[2]
-    # in our proto, the public key hex is encoded in the id; try to find vk by scanning keys dir
-    # Fallback: return first available public key from crypto_asym
+    # In this proto method the DID id is the first 16 hex chars of the public key,
+    # exactly as create_did_from_key builds it. The only key this node can resolve
+    # is its own, so check that the DID actually names that key before returning
+    # it. Returning the local key unconditionally made the result independent of
+    # the DID argument, which meant a delta claiming any signer verified against
+    # our own key.
     try:
         from .crypto_asym import get_public_key_bytes
-        return get_public_key_bytes(None)
+        pub = get_public_key_bytes(None)
     except Exception:
         raise ValueError('Could not resolve DID')
+    if pub.hex()[:16] != s:
+        raise ValueError('DID does not name a key this node can resolve: ' + did)
+    return pub
