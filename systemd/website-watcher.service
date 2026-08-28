@@ -9,7 +9,17 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-WorkingDirectory=/var/lib/website-watcher
+# Substituted by install_service.sh with the directory the repo was installed
+# from. It used to be the data dir, which holds no code, so `python -m src.main`
+# failed with ModuleNotFoundError on every activation: there is no pyproject.toml
+# or setup.py, so src is importable only from the checkout root.
+WorkingDirectory=__BASEDIR__
+# ProtectSystem=strict makes the whole filesystem read-only, so the data dir has
+# to be granted back explicitly or the crawl cannot write the database.
+ReadWritePaths=/var/lib/website-watcher
+# install_service.sh writes this file. Without the directive systemd never read
+# it, so WPS_DB_PATH and ARCHIVEBOX_INDEX_JSON never reached the process.
+EnvironmentFile=-/etc/default/website-watcher
 ExecStart=/usr/bin/env python -m src.main run
 Restart=on-failure
 RestartSec=60

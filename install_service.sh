@@ -28,7 +28,9 @@ ARCHIVEBOX_INDEX_JSON=${ARCHIVEBOX_INDEX_JSON:-}
 PYTHONUNBUFFERED=1
 EOF
 
-cp "$SERVICE_SRC" /etc/systemd/system/website-watcher.service
+# The unit ships with a __BASEDIR__ placeholder because it has to point at
+# wherever this repo was installed, which only this script knows.
+sed "s|__BASEDIR__|$BASEDIR|g" "$SERVICE_SRC" > /etc/systemd/system/website-watcher.service
 cp "$TIMER_SRC" /etc/systemd/system/website-watcher.timer
 systemctl daemon-reload
 systemctl enable --now website-watcher.timer
