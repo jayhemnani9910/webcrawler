@@ -29,7 +29,10 @@ services:
     restart: unless-stopped
 
   ipfs:
-    image: ipfs/go-ipfs:latest
+    # Matches docker-compose.integration.yml. go-ipfs was renamed to kubo and
+    # the old image is no longer the maintained one, so the stack integration
+    # tests validated was not the stack production ran.
+    image: ipfs/kubo:release
     volumes:
       - ipfs_data:/data/ipfs
     ports:
@@ -65,8 +68,15 @@ services:
 
   grafana:
     image: grafana/grafana:latest
+    environment:
+      # Grafana defaults to admin/admin when this is unset. Required, with no
+      # fallback, so a missing value fails the stack rather than shipping the
+      # default password.
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD:?set GF_SECURITY_ADMIN_PASSWORD in .env.prod}
     ports:
-      - "3000:3000"
+      # Bound to loopback. This was published on every interface with default
+      # credentials, which put the admin console on the open internet.
+      - "127.0.0.1:3000:3000"
     restart: unless-stopped
 
 volumes:
