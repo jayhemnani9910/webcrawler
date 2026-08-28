@@ -1,11 +1,17 @@
 # Sample workflow for building and deploying a Jekyll site to GitHub Pages
 name: Deploy Jekyll with GitHub Pages dependencies preinstalled
 
+# Manual only. This workflow and .github/workflows/pages.yml both deploy to the
+# github-pages environment and share the concurrency group "pages" while
+# disagreeing on cancel-in-progress, so with both firing on a push to master
+# which one publishes the live site is a race between two different builds:
+# this one runs Jekyll, the other runs a purpose-written Python build step.
+#
+# Until F119 was fixed, pages.yml was invalid YAML and had never run, so this
+# workflow was the only thing publishing the site and the race was latent.
+# pages.yml is the builder written for this project, so it takes the push
+# trigger and this one stays available to run by hand.
 on:
-  # Runs on pushes targeting the default branch
-  push:
-    branches: ["master"]
-
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
