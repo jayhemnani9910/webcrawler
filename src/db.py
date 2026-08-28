@@ -1,9 +1,14 @@
 import sqlite3
 import json
+import os
 from pathlib import Path
 from datetime import datetime
 
-DB_PATH = Path(__file__).resolve().parents[1] / "watcher.db"
+# .env.prod.example, install_service.sh and scripts/backup_db.sh all set or
+# honour WPS_DB_PATH, but this module used to hardcode the repo-root path and
+# never read the variable. An operator who set it in production got silently
+# ignored, and backup_db.sh copied a file the application never wrote to.
+DB_PATH = Path(os.environ.get('WPS_DB_PATH') or Path(__file__).resolve().parents[1] / "watcher.db")
 
 def get_conn():
     conn = sqlite3.connect(str(DB_PATH))
