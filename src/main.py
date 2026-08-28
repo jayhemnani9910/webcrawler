@@ -82,7 +82,7 @@ def main():
             print('Starting crawl cycle')
             sw.run_cycle()
             print('Crawl cycle completed')
-        sched.add_job(job, 'interval', hours=2, next_run_time=None)
+        sched.add_job(job, 'interval', hours=2)
         # run once now
         job()
         try:
