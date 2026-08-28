@@ -25,7 +25,9 @@ async function main() {
 
   app.get('/peers', async (req, res) => {
     try {
-      const peers = Array.from(node.getConnections().keys());
+      // getConnections() returns an array of Connection objects, so .keys()
+      // yielded array indices (0, 1, 2) rather than peer identifiers.
+      const peers = node.getConnections().map(c => c.remotePeer.toString());
       res.json({ peers });
     } catch (e) {
       res.status(500).json({ error: e.toString() });
