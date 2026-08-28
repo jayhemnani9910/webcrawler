@@ -13,10 +13,12 @@ KEY_PATH = Path(os.environ.get('WPS_KEY_PATH', 'keys/hmac.key'))
 
 def ensure_key():
     KEY_PATH.parent.mkdir(parents=True, exist_ok=True)
+    os.chmod(KEY_PATH.parent, 0o700)
     if not KEY_PATH.exists():
         # generate a 32-byte key
         k = os.urandom(32)
         KEY_PATH.write_bytes(k)
+    os.chmod(KEY_PATH, 0o600)
     return KEY_PATH.read_bytes()
 
 
