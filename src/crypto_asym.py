@@ -20,12 +20,14 @@ VK_PATH = KEY_DIR / 'ed25519_vk.hex'
 
 def ensure_keypair():
     KEY_DIR.mkdir(parents=True, exist_ok=True)
+    os.chmod(KEY_DIR, 0o700)
     if _HAS_LIBSODIUM:
         if not SK_PATH.exists() or not VK_PATH.exists():
             sk = SigningKey.generate()
             vk = sk.verify_key
             SK_PATH.write_text(sk.encode(encoder=HexEncoder).decode('utf-8'))
             VK_PATH.write_text(vk.encode(encoder=HexEncoder).decode('utf-8'))
+        os.chmod(SK_PATH, 0o600)
         sk = SigningKey(SK_PATH.read_text().strip(), encoder=HexEncoder)
         vk = sk.verify_key
         return sk, vk
@@ -34,6 +36,7 @@ def ensure_keypair():
         key_path = KEY_DIR / 'fallback_hmac.key'
         if not key_path.exists():
             key_path.write_bytes(os.urandom(32))
+        os.chmod(key_path, 0o600)
         key = key_path.read_bytes()
         return key
 
