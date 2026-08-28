@@ -106,7 +106,13 @@ def verify_delta(delta: Dict, signature_hex: str) -> bool:
 def store_delta(delta: Dict, signature_hex: str) -> int:
     conn = get_conn()
     cur = conn.cursor()
-    cur.execute('INSERT INTO MerkleDeltas (site_id, delta_json, signature) VALUES (?, ?, ?)', (delta['site_id'], json.dumps(delta), signature_hex))
+    # The sequence, lamport and signer_did columns must be written here too.
+    # Leaving them NULL made the MAX(sequence)/MAX(lamport) replay guard in
+    # src/ui.py api_merkle_push always compare against 0, so no pushed delta was
+    # ever rejected as obsolete and the documented 409 could not fire.
+    cur.execute('INSERT INTO MerkleDeltas (site_id, delta_json, signature, sequence, signer_did, lamport) VALUES (?, ?, ?, ?, ?, ?)',
+                (delta['site_id'], json.dumps(delta), signature_hex,
+                 delta.get('sequence'), delta.get('signer_did'), delta.get('lamport')))
     conn.commit()
     vid = cur.lastrowid
     conn.close()
