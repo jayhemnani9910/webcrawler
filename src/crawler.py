@@ -319,6 +319,12 @@ class SiteWatcher:
                 cur.execute("UPDATE Sites SET last_crawled=? WHERE id=?", (datetime.utcnow().isoformat(), s['id']))
                 conn.commit()
             except Exception:
+                # Without this the only trace of a failed crawl is status='error'
+                # in the Sites row, which is how a crash on the very first line of
+                # crawl_site went unnoticed while the site sat at 303 discovered
+                # pages and last_crawled=never.
+                logger.exception('crawl_site failed for site id=%s root=%s',
+                                 s['id'], s['root_url'])
                 cur.execute("UPDATE Sites SET status='error' WHERE id=?", (s['id'],))
                 conn.commit()
         conn.close()
