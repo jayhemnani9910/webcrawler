@@ -44,8 +44,15 @@ async function main() {
         await node.pubsub.publish(topic, Buffer.from(JSON.stringify(message)));
         return res.json({ ok: true });
       }
-      console.log('[publish]', topic, message);
-      return res.json({ ok: true, note: 'published-to-log' });
+      // createNode() configures no pubsub service, so node.pubsub is undefined and
+      // nothing here reached a peer. Answering 200 {ok:true} told the caller in
+      // src/gossip_distributed.py the message had been published when it had only
+      // been written to this process's stdout.
+      console.log('[publish-dropped: no pubsub configured]', topic, message);
+      return res.status(503).json({
+        ok: false,
+        error: 'pubsub is not configured on this relay; message was not published'
+      });
     } catch (e) {
       res.status(500).json({ error: e.toString() });
     }
