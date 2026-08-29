@@ -32,9 +32,10 @@ class P2PNode:
         if not _HAS_LIBP2P:
             logger.warning('libp2p python package not installed; P2P disabled.\n'
                            'Install a libp2p implementation or run an external relay.')
-            return
+            return False
         # Example API — real code depends on chosen libp2p implementation
         self.node = await new_node(listen_multiaddr=self.listen_multiaddr)
+        return True
 
     async def stop(self):
         if self.node:
