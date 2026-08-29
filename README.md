@@ -18,7 +18,7 @@ This project implements an intelligent website watcher that combines ArchiveBox'
 - **Change Detection**: Content-hash based change tracking with stable diff algorithms
 - **Full-Text Search**: SQLite FTS5 powered search across all archived versions
 - **Distributed Storage**: Optional IPFS integration for decentralized content preservation
-- **Cryptographic Verification**: Merkle trees and content anchoring for authenticity
+- **Cryptographic Verification**: Merkle trees for authenticity (multi-chain content anchoring exists as unwired scaffolding in `src/anchor_chain.py` and is not called from anywhere)
 - **Production Ready**: Systemd timers, Docker support, Prometheus metrics, health checks
 - **Web Interface**: Flask-based UI for search, monitoring, and site management
 - **Automated Scheduling**: Configurable intervals (default: every 2 hours)
