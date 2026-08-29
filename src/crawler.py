@@ -239,6 +239,11 @@ class SiteWatcher:
                 lm = None
                 if last_ver:
                     lm = last_ver['archived_at']
+                    if lm:
+                        try:
+                            lm = datetime.fromisoformat(lm).strftime('%a, %d %b %Y %H:%M:%S GMT')
+                        except ValueError:
+                            lm = None
                 status, resp_headers, body = http_get(url, headers={'User-Agent': ua}, last_modified=lm, retries=2)
                 if status == 200 and body:
                     html = body
