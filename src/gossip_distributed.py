@@ -31,13 +31,16 @@ class GossipNode:
             except Exception as e:
                 logger.debug('Relay publish failed: %s', e)
         # fallback: POST to peers
+        success = False
         for p in self.peers:
             try:
                 url = p.rstrip('/') + '/gossip'
-                requests.post(url, json=payload, timeout=5)
+                res = requests.post(url, json=payload, timeout=5)
+                if res.status_code == 200:
+                    success = True
             except Exception as e:
                 logger.debug('Peer publish failed to %s: %s', p, e)
-        return True
+        return success
 
     async def run_listener(self, host: str = '0.0.0.0', port: int = 17000, handler: Optional[Callable] = None):
         # Minimal listener using asyncio's TCP server is left as a placeholder
