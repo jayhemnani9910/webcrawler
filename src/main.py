@@ -61,6 +61,10 @@ def main():
         except (KeyboardInterrupt, SystemExit):
             print('Proof worker shutting down')
         return
+    if args.cmd == 'archive-index':
+        from .config import get_archive_index
+        print('archive index path:', get_archive_index() or '(not set)')
+        return
     if args.cmd == 'archive-index-set':
         from .config import set_archive_index
         set_archive_index(args.path)
