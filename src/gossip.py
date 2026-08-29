@@ -5,9 +5,9 @@ import json
 from .p2p import P2PNode
 
 
-async def _send_to_peer(host, port, message):
+async def _send_to_peer(host, port, message, timeout=5):
     node = P2PNode()
-    return await node.send(host, port, message)
+    return await node.send(host, port, message, timeout=timeout)
 
 
 def broadcast_change(peers, message, timeout=5):
@@ -19,7 +19,7 @@ def broadcast_change(peers, message, timeout=5):
     async def _run():
         tasks = []
         for host, port in peers:
-            tasks.append(_send_to_peer(host, port, message))
+            tasks.append(_send_to_peer(host, port, message, timeout=timeout))
         results = await asyncio.gather(*tasks, return_exceptions=True)
         return results
     return asyncio.get_event_loop().run_until_complete(_run())
