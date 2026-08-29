@@ -155,6 +155,8 @@ def site_edit(site_id):
 
 @app.route('/search')
 def search():
+  if PROM_AVAILABLE:
+    SEARCH_COUNTER.inc()
   q = request.args.get('q')
   results = []
   try:
@@ -272,8 +274,12 @@ def admin_crisis_mode():
     conn = db.get_conn()
     cur = conn.cursor()
     if request.method == 'POST':
-        action = request.form.get('action') or request.json.get('action') if request.is_json else request.form.get('action')
-        note = request.form.get('note') or (request.json.get('note') if request.is_json else None)
+        json_body = request.get_json(silent=True) if request.is_json else None
+        if request.is_json and not isinstance(json_body, dict):
+            conn.close()
+            return jsonify({'error': 'JSON body must be an object'}), 400
+        action = request.form.get('action') or (json_body.get('action') if json_body else None)
+        note = request.form.get('note') or (json_body.get('note') if json_body else None)
         if action == 'activate':
             cur.execute("INSERT INTO CrisisStatus (active, activated_at, note) VALUES (1, datetime('now'), ?)", (note,))
             conn.commit()
