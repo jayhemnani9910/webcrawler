@@ -4,6 +4,9 @@ from typing import Optional
 import os
 from pathlib import Path
 import time
+import logging
+
+logger = logging.getLogger(__name__)
 
 def archive_url(url: str, archivebox_args: Optional[list]=None) -> dict:
     """Call ArchiveBox CLI to archive a single URL. Returns parsed JSON if available, else a minimal dict.
@@ -23,7 +26,7 @@ def archive_url(url: str, archivebox_args: Optional[list]=None) -> dict:
                 return json.loads(out)
             except Exception:
                 return {"raw_output": out}
-        except subprocess.CalledProcessError as e:
+        except (subprocess.CalledProcessError, FileNotFoundError) as e:
             last_exc = e
             # try without --json as fallback on first failure
             if attempt == 0:
@@ -91,8 +94,9 @@ def list_archives_json() -> list:
             p = Path(idx_path)
             if p.is_file():
                 return json.loads(p.read_text(encoding='utf-8'))
-        except Exception:
-            pass
+            logger.warning('archivebox index configured at %s but the file does not exist', idx_path)
+        except Exception as e:
+            logger.warning('archivebox index at %s could not be read: %s', idx_path, e)
     try:
         p = subprocess.run(["archivebox", "list", "--json"], capture_output=True, text=True, check=True)
         out = p.stdout.strip()
@@ -100,7 +104,8 @@ def list_archives_json() -> list:
             return json.loads(out)
         except Exception:
             return []
-    except Exception:
+    except Exception as e:
+        logger.warning('archivebox list --json fallback failed: %s', e)
         return []
 
 
