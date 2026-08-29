@@ -23,8 +23,11 @@ def normalize_url(url: str, root_netloc: str) -> str:
     # drop tracking params
     qs = [(k, v) for k, v in parse_qsl(p.query, keep_blank_values=True) if not TRACKING_PARAMS.match(k)]
     query = urlencode(qs)
-    # enforce same domain
-    if netloc == root_netloc or netloc.endswith('.' + root_netloc):
+    # enforce same domain, treating the scheme's default port as equivalent to no port
+    default_port = {'http': ':80', 'https': ':443'}.get(scheme)
+    netloc_cmp = netloc[:-len(default_port)] if default_port and netloc.endswith(default_port) else netloc
+    root_cmp = root_netloc[:-len(default_port)] if default_port and root_netloc.endswith(default_port) else root_netloc
+    if netloc_cmp == root_cmp or netloc_cmp.endswith('.' + root_cmp):
         netloc = root_netloc
     return urlunparse((scheme, netloc, path.rstrip('/') or '/', '', query, ''))
 
