@@ -1,8 +1,57 @@
-Merkle Sync API
-================
+Website Watcher API
+====================
 
 Endpoints
 ---------
+
+/ (GET)
+- Web UI: lists watched sites with page counts and last-crawled time.
+
+/site/<id> (GET)
+- Web UI: lists pages for a site.
+
+/site/<id>/edit (GET, POST)
+- Web UI: view/edit a site's active flag, user agent and crawl delay. POST mutates
+  the Sites table. No authentication.
+
+/search (GET)
+- Web UI: full-text search form and results, with site/date facets and pagination.
+  Query params: `q`, `page`, `per_page`, `site`, `date`.
+
+/health (GET)
+- Returns {"status": "ok"} if the database is reachable, else {"status": "error"}
+  with HTTP 500.
+
+/metrics (GET)
+- Prometheus metrics in text exposition format. Returns HTTP 503 if
+  `prometheus_client` is not installed.
+
+/admin/metrics (GET)
+- Returns aggregate counts: {"sites", "pages", "page_versions", "changes"}.
+- Requires admin auth (see below).
+
+/admin/global_preservation_health (GET)
+- Returns {"avg_knowledge_survival_rate", "top_sites_by_cultural_significance", "merkle_forest_count"}.
+- Requires admin auth (see below).
+
+/admin/crisis_mode (GET, POST)
+- GET returns the latest crisis status: {"active", "activated_at", "note"}.
+- POST accepts form or JSON body {"action": "activate"|"deactivate", "note": "..."}
+  and inserts a new CrisisStatus row. Returns {"status": "activated"|"deactivated"},
+  or 400 for an unknown action.
+- Requires admin auth (see below).
+
+Admin auth
+----------
+The three `/admin/*` routes above require a `X-Admin-Token` header matching the
+`WPS_ADMIN_TOKEN` environment variable. If `WPS_ADMIN_TOKEN` is not set, the routes
+refuse every request with HTTP 503 (they do not default open). A header that does
+not match the expected token gets HTTP 401.
+
+/api/search (GET)
+- Query params: `q` (required; missing or empty returns {"results": []}).
+- Returns {"results": [{"page_version_id", "content_hash", "site_id", "archived_at", "snippet"}, ...]}.
+- No authentication.
 
 /api/merkle/push (POST)
 - Accepts JSON: {"delta": <delta_dict>, "signature": "<hex>"}
