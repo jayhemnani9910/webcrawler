@@ -6,7 +6,8 @@ workflows.
 
 ## Environment setup
 
-There is no `.venv` and no `pyproject.toml`, only `requirements.txt`. So:
+A `.venv` now exists at the repo root (created 2026-08-28). There is still no
+`pyproject.toml`, only `requirements.txt`. If a fresh checkout needs one:
 
 ```
 uv venv
@@ -50,7 +51,9 @@ uv run pytest -q
 
 This is what `.github/workflows/ci.yml` runs. 8 test files under `tests/`.
 
-Read "Live data" below first. This command writes to the database.
+`tests/conftest.py` redirects `db.DB_PATH` to a temp dir for the whole session, so
+this command no longer writes to the live database. See "Live data" below for other
+commands that still can.
 
 ## Live data
 
@@ -68,9 +71,12 @@ and `scripts/backup_db.sh` all set or honour that variable. So there is no envir
 override available and the path cannot be redirected without editing code.
 
 `tests/test_merkle_ordering.py:10` calls `db.init_db()` and then `db.add_site(...)`,
-so a plain `pytest` run inserts into the live database.
+but `tests/conftest.py` now has a session-scoped, autouse fixture that points
+`db.DB_PATH` at a pytest `tmp_path` before any test runs, so a plain `pytest` run no
+longer touches the live database.
 
-Procedure for any command that can open the database for writing:
+Procedure for any command that can open the database for writing (other than running
+the test suite, which is now safe on its own):
 
 1. `cp -p watcher.db <scratchpad>/watcher.db.orig` (already done, md5
    `f8f9b43ce13b3ab49e9ad78bf8d82c59`)
