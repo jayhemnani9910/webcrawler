@@ -6,6 +6,7 @@ variables. If no provider is configured, falls back to file-backed keys (safe
 for prototypes only).
 """
 import os
+import base64
 import logging
 from pathlib import Path
 from typing import Optional
@@ -49,6 +50,9 @@ def get_provider() -> KMSProvider:
     # Prefer AWS KMS if AWS_KMS_KEY_ID and boto3 available
     try:
         import boto3
+    except ImportError:
+        boto3 = None
+    if boto3:
         AWS_KEY = os.environ.get('AWS_KMS_KEY_ID')
         if AWS_KEY:
             # Minimal adapter wrapping boto3 KMS sign/verify
@@ -64,10 +68,16 @@ def get_provider() -> KMSProvider:
                     resp = self.client.verify(KeyId=key_id, Message=data, Signature=signature, MessageType='RAW', SigningAlgorithm='ECDSA_SHA_256')
                     return resp.get('SignatureValid', False)
 
-            logger.info('Using AWS KMS provider')
-            return AWSKMSProvider()
-    except Exception:
-        pass
+            # Construction (e.g. boto3.client('kms')) can fail for reasons
+            # unrelated to boto3 being missing, such as no AWS region being
+            # configured. That must not be conflated with "no KMS configured".
+            try:
+                provider = AWSKMSProvider()
+            except Exception as e:
+                logger.error(f'AWS_KMS_KEY_ID is set but AWS KMS provider failed to initialize: {e}')
+            else:
+                logger.info('Using AWS KMS provider')
+                return provider
 
     # Prefer Vault if configured and hvac available
     try:
@@ -90,10 +100,10 @@ def get_provider() -> KMSProvider:
                         The signature as bytes (Vault signature string encoded as bytes)
                     """
                     try:
-                        # Vault transit sign_data expects hash_input as base64 or hex
+                        # Vault transit sign_data expects hash_input as base64
                         resp = self.client.secrets.transit.sign_data(
                             name=key_id,
-                            hash_input=data.hex()
+                            hash_input=base64.b64encode(data).decode('ascii')
                         )
                         # Vault returns signature in format "vault:v1:BASE64_SIG"
                         # Return as bytes for consistency with interface
@@ -122,12 +132,15 @@ def get_provider() -> KMSProvider:
                         # Vault transit verify_signed_data expects hash_input and signature
                         resp = self.client.secrets.transit.verify_signed_data(
                             name=key_id,
-                            hash_input=data.hex(),
+                            hash_input=base64.b64encode(data).decode('ascii'),
                             signature=vault_sig
                         )
 
                         # The response contains a 'valid' field indicating verification result
-                        return resp.get('data', {}).get('valid', False)
+                        result = resp.get('data', {})
+                        if 'valid' not in result:
+                            logger.warning(f'Vault verify_signed_data response for key {key_id} is missing the "valid" field; treating as invalid: {resp!r}')
+                        return result.get('valid', False)
                     except Exception as e:
                         # Log the error for debugging but return False for verification failure
                         logger.warning(f'Vault verification failed for key {key_id}: {e}')
