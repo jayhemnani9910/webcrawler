@@ -19,13 +19,25 @@ logger = logging.getLogger(__name__)
 
 
 def run_once(anchor_dir: Path = Path('anchors')):
-    conn = get_conn()
-    cur = conn.cursor()
-    rows = cur.execute("SELECT id, proof_path FROM PageVersions WHERE proof_path IS NOT NULL AND proof_path != '' AND proof_verified=0").fetchall()
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+        rows = cur.execute("SELECT id, proof_path, witness_tx_id FROM PageVersions WHERE proof_path IS NOT NULL AND proof_path != '' AND proof_verified=0").fetchall()
+    except Exception as e:
+        logger.exception('proof_upgrader failed to set up run: %s', e)
+        return
     for r in rows:
         vid = r['id']
         ppath = r['proof_path']
         try:
+            if r['witness_tx_id'] is None:
+                # No OTS stamp was ever obtained for this row (see anchor.anchor_hash);
+                # proof_path is a local fallback marker, not real proof material, and
+                # will never verify. Mark it failed instead of retrying forever.
+                cur.execute('UPDATE PageVersions SET proof_verified=-1 WHERE id=?', (vid,))
+                conn.commit()
+                logger.warning('PageVersion id=%s has no OTS witness; marking proof_verified=-1 (failed) instead of retrying forever', vid)
+                continue
             # try verify first
             ok = verify_ots(ppath)
             if ok:
@@ -57,6 +69,7 @@ def run_once(anchor_dir: Path = Path('anchors')):
                     conn.commit()
                     logger.info('Fetched and verified proof for PageVersion id=%s', vid)
                     continue
+            logger.info('Proof for PageVersion id=%s still unverified; will retry next run', vid)
         except Exception as e:
             logger.exception('Error processing proof for PageVersion id=%s: %s', vid, e)
     conn.close()
@@ -64,5 +77,8 @@ def run_once(anchor_dir: Path = Path('anchors')):
 
 def run_loop(interval_seconds: int = 3600, anchor_dir: Path = Path('anchors')):
     while True:
-        run_once(anchor_dir=anchor_dir)
+        try:
+            run_once(anchor_dir=anchor_dir)
+        except Exception as e:
+            logger.exception('proof_upgrader run_once failed: %s', e)
         time.sleep(interval_seconds)

@@ -35,8 +35,10 @@ def anchor_hash(content_hash: str) -> str:
             with open(fname, 'wb') as f:
                 f.write(proof_bytes)
             local_proof_path = str(fname)
-        # use ots_path as witness id if provided
-        witness = str(ots_path)
+            # only claim a witness once we actually have real proof bytes on disk;
+            # otherwise proof_path below will be the fabricated local fallback and
+            # witness must stay None so callers can tell real proof from fake.
+            witness = str(ots_path)
 
     # If we didn't obtain an OTS proof, create a local anchor file
     if not local_proof_path:
