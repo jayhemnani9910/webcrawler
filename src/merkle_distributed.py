@@ -20,7 +20,9 @@ def merkle_hash(data: bytes) -> bytes:
 
 def merkle_root(leaves: List[bytes]) -> bytes:
     if not leaves:
-        return merkle_hash(b'')
+        # Match src/merkle.py's documented empty-tree behaviour (returns b'')
+        # so a root computed by either module for an empty tree compares equal.
+        return b''
     nodes = [merkle_hash(l) for l in leaves]
     while len(nodes) > 1:
         next_nodes = []
@@ -64,8 +66,27 @@ def merge_forests(local_blob: dict, remote_blob: dict, remote_context: dict = No
     - Return merged blob containing `nodes` (deterministically sorted by node_hash)
       and optional `conflicts` list.
     """
-    local_nodes = {n['node_hash']: n for n in local_blob.get('nodes', [])}
+    local_nodes = {}
     conflicts = []
+    for n in local_blob.get('nodes', []):
+        nh = n.get('node_hash')
+        if nh in local_nodes:
+            existing_payload = local_nodes[nh].get('payload')
+            payload = n.get('payload')
+            if json.dumps(existing_payload) != json.dumps(payload):
+                # local_blob already contains two entries for the same node_hash
+                # with different payloads. Record the conflict (previously
+                # silently dropped by the dict comprehension this replaced) and
+                # pick a winner deterministically by payload content, not by
+                # position in the list, so reordering local_blob's nodes can't
+                # change the result.
+                if json.dumps(payload) < json.dumps(existing_payload):
+                    conflicts.append({'node_hash': nh, 'local_payload': existing_payload, 'remote_payload': payload, 'winner': 'remote'})
+                    local_nodes[nh] = n
+                else:
+                    conflicts.append({'node_hash': nh, 'local_payload': existing_payload, 'remote_payload': payload, 'winner': 'local'})
+        else:
+            local_nodes[nh] = n
     for n in remote_blob.get('nodes', []):
         nh = n.get('node_hash')
         if nh in local_nodes:
