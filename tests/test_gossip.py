@@ -27,4 +27,6 @@ def test_broadcast_change():
     peers = [('127.0.0.1', 9100)]
     res = broadcast_change(peers, {'type': 'change', 'id': 123})
     time.sleep(0.2)
+    assert isinstance(res, list) and len(res) == len(peers)
+    assert not isinstance(res[0], Exception)
     assert received and received[0].get('id') == 123
