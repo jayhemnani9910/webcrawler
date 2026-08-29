@@ -8,13 +8,16 @@ Tries in order:
 import shutil
 import subprocess
 import hashlib
+import logging
+import os
 from pathlib import Path
 from typing import Optional
 import requests
 import json
 
+logger = logging.getLogger(__name__)
 
-IPFS_API = ('127.0.0.1', 5001)
+IPFS_API = (os.environ.get('IPFS_API_HOST', '127.0.0.1'), int(os.environ.get('IPFS_API_PORT', '5001')))
 
 
 def _has_ipfs_cli() -> bool:
@@ -50,9 +53,10 @@ def add_file(path: str) -> str:
         if res.returncode == 0:
             return res.stdout.strip()
 
-    # Fallback to hash placeholder
+    # Fallback to hash placeholder. Prefixed so callers can tell this apart from a real CID.
+    logger.warning('IPFS daemon/CLI unavailable; add_file(%s) returning a local sha256 placeholder, not a real CID', path)
     data = p.read_bytes()
-    return hashlib.sha256(data).hexdigest()
+    return 'sha256-fallback:' + hashlib.sha256(data).hexdigest()
 
 
 def get_file(cid: str, out_path: Optional[str] = None) -> str:
@@ -83,8 +87,9 @@ def get_file(cid: str, out_path: Optional[str] = None) -> str:
         res = subprocess.run(cmd, capture_output=True, text=True)
         if res.returncode != 0:
             raise RuntimeError('ipfs get failed: ' + res.stderr)
-        # ipfs get writes files to cwd; if out_path specified, move it
+        # ipfs get writes files to cwd; if out_path specified, move it there
         if out_path:
+            Path(cid).rename(out_path)
             return out_path
         return cid
 
@@ -99,11 +104,14 @@ def pin_add(cid: str) -> bool:
         res = requests.post(url, timeout=10)
         if res.status_code == 200:
             return True
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug('pin_add HTTP API unreachable for %s: %s', cid, e)
 
     if _has_ipfs_cli():
         res = subprocess.run(['ipfs', 'pin', 'add', cid], capture_output=True, text=True)
+        if res.returncode != 0:
+            logger.warning('pin_add rejected by ipfs CLI for %s: %s', cid, res.stderr)
         return res.returncode == 0
 
+    logger.warning('pin_add(%s) failed: IPFS daemon unreachable and no ipfs CLI available', cid)
     return False
