@@ -18,37 +18,47 @@ SK_PATH = KEY_DIR / 'ed25519_sk.hex'
 VK_PATH = KEY_DIR / 'ed25519_vk.hex'
 
 
-def ensure_keypair():
+def ensure_keypair(key_id: str = None):
     KEY_DIR.mkdir(parents=True, exist_ok=True)
     os.chmod(KEY_DIR, 0o700)
+    # key_id=None keeps using the original default filenames (SK_PATH/VK_PATH)
+    # so the node's default identity is unchanged; a given key_id gets its own
+    # persisted keypair so distinct key_ids resolve to distinct keys.
+    if key_id:
+        sk_path = KEY_DIR / f'ed25519_sk_{key_id}.hex'
+        vk_path = KEY_DIR / f'ed25519_vk_{key_id}.hex'
+        hmac_path = KEY_DIR / f'fallback_hmac_{key_id}.key'
+    else:
+        sk_path = SK_PATH
+        vk_path = VK_PATH
+        hmac_path = KEY_DIR / 'fallback_hmac.key'
     if _HAS_LIBSODIUM:
-        if not SK_PATH.exists() or not VK_PATH.exists():
+        if not sk_path.exists() or not vk_path.exists():
             sk = SigningKey.generate()
             vk = sk.verify_key
-            SK_PATH.write_text(sk.encode(encoder=HexEncoder).decode('utf-8'))
-            VK_PATH.write_text(vk.encode(encoder=HexEncoder).decode('utf-8'))
-        os.chmod(SK_PATH, 0o600)
-        sk = SigningKey(SK_PATH.read_text().strip(), encoder=HexEncoder)
+            sk_path.write_text(sk.encode(encoder=HexEncoder).decode('utf-8'))
+            vk_path.write_text(vk.encode(encoder=HexEncoder).decode('utf-8'))
+        os.chmod(sk_path, 0o600)
+        sk = SigningKey(sk_path.read_text().strip(), encoder=HexEncoder)
         vk = sk.verify_key
         return sk, vk
     else:
         # Fallback: use a symmetric HMAC-like key file for signing (not cryptographically the same)
-        key_path = KEY_DIR / 'fallback_hmac.key'
-        if not key_path.exists():
-            key_path.write_bytes(os.urandom(32))
-        os.chmod(key_path, 0o600)
-        key = key_path.read_bytes()
+        if not hmac_path.exists():
+            hmac_path.write_bytes(os.urandom(32))
+        os.chmod(hmac_path, 0o600)
+        key = hmac_path.read_bytes()
         return key
 
 
 def get_public_key_bytes(key_id: str = None) -> bytes:
     """Return public key bytes for local keypair. If KMS provider is used, this should be adapted to request public key from provider."""
     if _HAS_LIBSODIUM:
-        sk, vk = ensure_keypair()
+        sk, vk = ensure_keypair(key_id)
         return vk.encode()
     else:
         # fallback: return a deterministic value derived from HMAC key
-        kp = ensure_keypair()
+        kp = ensure_keypair(key_id)
         import hashlib
         return hashlib.sha256(kp).digest()
 
