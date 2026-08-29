@@ -47,11 +47,13 @@ class P2PNode:
 
     async def send(self, host, port, message: dict, timeout=5):
         reader, writer = await asyncio.open_connection(host, port)
-        raw = json.dumps(message).encode('utf-8')
-        sig = sign_bytes(raw)
-        writer.write(raw + b"\n")
-        writer.write(json.dumps({'sig': sig}).encode('utf-8') + b"\n")
-        await writer.drain()
-        line = await asyncio.wait_for(reader.readline(), timeout=timeout)
-        writer.close()
-        return line.decode('utf-8').strip()
+        try:
+            raw = json.dumps(message).encode('utf-8')
+            sig = sign_bytes(raw)
+            writer.write(raw + b"\n")
+            writer.write(json.dumps({'sig': sig}).encode('utf-8') + b"\n")
+            await writer.drain()
+            line = await asyncio.wait_for(reader.readline(), timeout=timeout)
+            return line.decode('utf-8').strip()
+        finally:
+            writer.close()
