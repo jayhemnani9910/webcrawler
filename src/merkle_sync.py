@@ -96,10 +96,13 @@ def verify_delta(delta: Dict, signature_hex: str) -> bool:
         try:
             from .did import resolve_did_to_public_key
             pub = resolve_did_to_public_key(signer)
-            return crypto_asym.verify_with_public_key(j, signature_hex, pub)
         except Exception:
-            # fallback to default verify
-            return crypto_asym.verify_bytes(j, signature_hex)
+            # The claimed signer could not be resolved to a key. Fail closed
+            # instead of falling back to verify_bytes, which checks against
+            # OUR OWN key and would let any delta we signed verify under any
+            # claimed signer_did.
+            return False
+        return crypto_asym.verify_with_public_key(j, signature_hex, pub)
     return crypto_asym.verify_bytes(j, signature_hex)
 
 
@@ -133,9 +136,9 @@ def apply_delta(delta: Dict) -> bool:
         max_lam = row_check['lm'] or 0
         seq = delta.get('sequence') or 0
         lam = delta.get('lamport') or 0
-        if seq and seq <= max_seq:
+        if seq and seq < max_seq:
             return False
-        if lam and lam <= max_lam:
+        if lam and lam < max_lam:
             return False
     mf = MerkleForest(site_id)
     local = mf.latest()
