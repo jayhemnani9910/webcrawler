@@ -41,6 +41,8 @@ def ensure_spacy_model(model_name: str = 'en_core_web_sm') -> bool:
             _HAS_SPACY = True
             return True
         except Exception:
+            _HAS_SPACY = False
+            nlp = None
             return False
 
 
@@ -88,7 +90,7 @@ def extract_entities_from_text(text: str):
             words.add(w.strip('.,'))
         if len(words) >= 10:
             break
-    return [('ENTITY', w, 0.5) for w in words]
+    return [('ENTITY_HEURISTIC', w, 0.5) for w in words]
 
 
 def run_extraction(limit=50):
