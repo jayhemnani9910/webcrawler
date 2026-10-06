@@ -5,15 +5,11 @@ and attempts to upgrade/verify them using `src/anchor_ots` helpers. Marks
 `proof_verified=1` in DB when verification succeeds.
 """
 import time
-import sys
 import logging
 from pathlib import Path
 
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-from db import get_conn
-from anchor_ots import upgrade_ots, verify_ots, fetch_proof
+from ..db import get_conn
+from ..anchor_ots import upgrade_ots, verify_ots, fetch_proof
 
 logger = logging.getLogger(__name__)
 
@@ -54,8 +50,9 @@ def run_once(anchor_dir: Path = Path('anchors')):
                     conn.commit()
                     logger.info('Upgraded and verified proof for PageVersion id=%s', vid)
                     continue
-            # if proof not found locally, try fetching from OTSD
-            fetched = fetch_proof(ppath, anchor_dir)
+            # if proof not found locally, try fetching from OTSD. fetch_proof
+            # returns the local file first, so only ask when there is none.
+            fetched = fetch_proof(ppath, anchor_dir) if not Path(ppath).exists() else None
             if fetched:
                 # write fetched proof to anchors dir
                 anchor_dir.mkdir(parents=True, exist_ok=True)

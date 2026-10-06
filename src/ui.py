@@ -1,4 +1,5 @@
 from flask import Flask, render_template_string, abort, request, redirect, url_for, jsonify
+from markupsafe import Markup, escape
 from . import db
 import os
 try:
@@ -32,16 +33,43 @@ def _require_admin():
         return jsonify({'error': 'unauthorized'}), 401
     return None
 
-INDEX_TMPL = '''
+def _page(title, body):
+    """Wrap a page body in the shared shell: viewport meta, a little CSS, nav."""
+    return '''<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>''' + title + ''' - Website Watcher</title>
+<style>
+  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; line-height: 1.5;
+         max-width: 60rem; margin: 0 auto; padding: 16px; overflow-wrap: anywhere; }
+  nav { margin-bottom: 1rem; padding-bottom: .5rem; border-bottom: 1px solid #ccc; }
+  nav a { margin-right: 1rem; }
+  input[type=text], input[name=q] { width: 100%; max-width: 40rem; box-sizing: border-box; }
+  input, button { font: inherit; padding: .25rem .5rem; }
+  li { margin-bottom: .25rem; }
+  .facets { display: flex; flex-wrap: wrap; gap: 2rem; }
+</style>
+</head>
+<body>
+<nav><a href="/">Sites</a><a href="/search">Search</a></nav>
+''' + body + '''
+</body>
+</html>
+'''
+
+
+INDEX_TMPL = _page('Watched sites', '''
 <h1>Watched sites</h1>
 <ul>
 {% for s in sites %}
   <li><a href="/site/{{s.id}}">{{s.normalized_root}}</a> — pages: {{s.page_count}} — last crawled: {{s.last_crawled}} — <a href="/site/{{s.id}}/edit">edit</a></li>
 {% endfor %}
 </ul>
-'''
+''')
 
-SITE_TMPL = '''
+SITE_TMPL = _page('Site', '''
 <h1>Site {{site.normalized_root}}</h1>
 <p>Last crawled: {{site.last_crawled}}</p>
 <h2>Pages</h2>
@@ -51,40 +79,40 @@ SITE_TMPL = '''
 {% endfor %}
 </ul>
 <p><a href="/">Back</a></p>
-'''
+''')
 
-EDIT_TMPL = '''
+EDIT_TMPL = _page('Edit site', '''
 <h1>Edit site {{site.normalized_root}}</h1>
 <form method="post">
   <label>Active: <input type="checkbox" name="active" {% if site.active %}checked{% endif %}></label><br>
-  <label>User Agent: <input type="text" name="user_agent" value="{{site.user_agent or ''}}" size=60></label><br>
+  <label>User Agent: <input type="text" name="user_agent" value="{{site.user_agent or ''}}"></label><br>
   <label>Crawl Delay (seconds): <input type="number" name="crawl_delay" value="{{site.crawl_delay or 1}}"></label><br>
   <input type="submit" value="Save">
 </form>
 <p><a href="/site/{{site.id}}">Back</a></p>
-'''
+''')
 
-SEARCH_TMPL = '''
+SEARCH_TMPL = _page('Search', '''
 <h1>Search</h1>
 <form method="get" action="/search">
-  <input name="q" value="{{q or ''}}" size=60>
+  <input name="q" value="{{q or ''}}">
   <input type="submit" value="Search">
 </form>
 {% if results %}
   <h2>Results ({{total}})</h2>
-  <div style="display:flex;gap:2rem">
+  <div class="facets">
     <div style="min-width:160px">
       <h3>Facets</h3>
       <h4>Sites</h4>
       <ul>
       {% for sid,count in site_facets.items() %}
-        <li><a href="/search?q={{q}}&site={{sid}}">{{site_names.get(sid, 'Site '+sid|string)}}</a> ({{count}})</li>
+        <li><a href="/search?q={{q|urlencode}}&site={{sid}}">{{site_names.get(sid, 'Site '+sid|string)}}</a> ({{count}})</li>
       {% endfor %}
       </ul>
       <h4>By month</h4>
       <ul>
       {% for ym,count in date_facets.items() %}
-        <li><a href="/search?q={{q}}&date={{ym}}">{{ym}}</a> ({{count}})</li>
+        <li><a href="/search?q={{q|urlencode}}&date={{ym}}">{{ym}}</a> ({{count}})</li>
       {% endfor %}
       </ul>
     </div>
@@ -96,18 +124,18 @@ SEARCH_TMPL = '''
       </ul>
       <div style="margin-top:1rem">
         {% if page>1 %}
-          <a href="/search?q={{q}}&page={{page-1}}&per_page={{per_page}}">Previous</a>
+          <a href="/search?q={{q|urlencode}}&page={{page-1}}&per_page={{per_page}}">Previous</a>
         {% endif %}
         &nbsp; Page {{page}} &nbsp;
         {% if page*per_page < total %}
-          <a href="/search?q={{q}}&page={{page+1}}&per_page={{per_page}}">Next</a>
+          <a href="/search?q={{q|urlencode}}&page={{page+1}}&per_page={{per_page}}">Next</a>
         {% endif %}
       </div>
     </div>
   </div>
 {% endif %}
 <p><a href="/">Back</a></p>
-'''
+''')
 
 
 @app.route('/')
@@ -145,12 +173,20 @@ def site_edit(site_id):
       crawl_delay = int(request.form.get('crawl_delay') or 1)
     except Exception:
       crawl_delay = 1
+    # The crawler sleeps for this long between requests; keep it within an hour.
+    crawl_delay = min(max(crawl_delay, 0), 3600)
     cur.execute('UPDATE Sites SET active=?, user_agent=?, crawl_delay=? WHERE id=?', (active, user_agent, crawl_delay, site_id))
     conn.commit()
     conn.close()
     return redirect(url_for('site_view', site_id=site_id))
   conn.close()
   return render_template_string(EDIT_TMPL, site=site)
+
+
+def _snippet_html(snippet):
+  """Escape the snippet text, then turn the FTS <b> match markers back into tags."""
+  html = str(escape(snippet or ''))
+  return Markup(html.replace('&lt;b&gt;', '<b>').replace('&lt;/b&gt;', '</b>'))
 
 
 @app.route('/search')
@@ -174,7 +210,12 @@ def search():
     # basic input validation
     if len(q) > 200:
       return render_template_string('<p>Query too long</p>'), 400
-    rows = db.search_page_versions(q, limit=200)
+    try:
+      site_id = int(site_filter) if site_filter else None
+    except ValueError:
+      site_id = None
+    # Filters go into the SQL, before the 200-row cap, not after it.
+    rows = db.search_page_versions(q, limit=200, site_id=site_id, date_prefix=date_filter or None)
     # convert sqlite rows to dict-like
     for r in rows:
       results.append({
@@ -182,13 +223,8 @@ def search():
         'content_hash': r['content_hash'],
         'site_id': r['site_id'] if 'site_id' in r.keys() else None,
         'archived_at': r['archived_at'] if 'archived_at' in r.keys() else None,
-        'snippet': r['snippet'] if 'snippet' in r.keys() else ''
+        'snippet': _snippet_html(r['snippet'] if 'snippet' in r.keys() else '')
       })
-    # apply simple filters
-    if site_filter:
-      results = [r for r in results if str(r.get('site_id')) == str(site_filter)]
-    if date_filter:
-      results = [r for r in results if (r.get('archived_at') or '').startswith(date_filter)]
   total = len(results)
   # pagination slice
   start = (page-1) * per_page
@@ -205,7 +241,8 @@ def search():
     for s in srows:
       site_names[s['id']] = s['normalized_root']
     conn.close()
-  for r in paged:
+  # Facets count the whole result set, not just the page shown.
+  for r in results:
     sid = r.get('site_id')
     site_facets[sid] = site_facets.get(sid, 0) + 1
     dt = r.get('archived_at') or ''

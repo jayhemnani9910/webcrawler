@@ -7,31 +7,11 @@ helpers to compute/compare roots for synchronization.
 Note: This is a synchronization scaffolding — production-grade conflict
 resolution, sharding, and consistency guarantees require a design review.
 """
-from hashlib import sha256
 import json
 from datetime import datetime
 from .db import get_conn
-from typing import List, Optional
-
-
-def merkle_hash(data: bytes) -> bytes:
-    return sha256(data).digest()
-
-
-def merkle_root(leaves: List[bytes]) -> bytes:
-    if not leaves:
-        # Match src/merkle.py's documented empty-tree behaviour (returns b'')
-        # so a root computed by either module for an empty tree compares equal.
-        return b''
-    nodes = [merkle_hash(l) for l in leaves]
-    while len(nodes) > 1:
-        next_nodes = []
-        for i in range(0, len(nodes), 2):
-            a = nodes[i]
-            b = nodes[i+1] if i+1 < len(nodes) else a
-            next_nodes.append(merkle_hash(a + b))
-        nodes = next_nodes
-    return nodes[0]
+from .merkle import merkle_root
+from typing import Optional
 
 
 class MerkleForest:

@@ -24,12 +24,13 @@ except Exception:
 def ensure_spacy_model(model_name: str = 'en_core_web_sm') -> bool:
     """Ensure a spaCy model is installed. Returns True if available afterwards."""
     global _HAS_SPACY, nlp
-    if not _HAS_SPACY:
-        try:
-            import spacy
-            _HAS_SPACY = True
-        except Exception:
-            return False
+    # Import here every time: a conditional import would make `spacy` a local
+    # name that is unbound whenever spaCy was already loaded at module import.
+    try:
+        import spacy
+        _HAS_SPACY = True
+    except Exception:
+        return False
     try:
         nlp = spacy.load(model_name)
         return True
@@ -97,7 +98,11 @@ def run_extraction(limit=50):
     init_tables()
     conn = get_conn()
     cur = conn.cursor()
-    rows = cur.execute('SELECT id, content_text FROM PageVersions ORDER BY archived_at DESC LIMIT ?', (limit,)).fetchall()
+    # Skip versions that already have entities, so re-runs do not duplicate them.
+    rows = cur.execute(
+        'SELECT id, content_text FROM PageVersions '
+        'WHERE id NOT IN (SELECT page_version_id FROM KnowledgeEntities) '
+        'ORDER BY archived_at DESC LIMIT ?', (limit,)).fetchall()
     for r in rows:
         pv_id = r['id']
         text = r['content_text'] or ''

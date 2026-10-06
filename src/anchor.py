@@ -7,6 +7,7 @@ or direct blockchain anchoring services.
 import os
 import time
 from pathlib import Path
+from typing import Optional, Tuple
 from . import anchor_ots
 
 
@@ -14,13 +15,13 @@ ANCHOR_DIR = Path(os.environ.get('WPS_ANCHOR_DIR', 'anchors'))
 ANCHOR_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def anchor_hash(content_hash: str) -> str:
-    """Anchor a content hash; return a witness id.
+def anchor_hash(content_hash: str) -> Tuple[Optional[str], str]:
+    """Anchor a content hash; return (witness, proof_path).
 
     This will attempt to create an OpenTimestamps (.ots) proof using the `ots`
-    CLI (via `src/anchor_ots.py`). If unavailable, a local anchor file is created
-    and its path returned. The returned string is suitable for storing in the DB
-    as `witness_tx_id` (it may be a filesystem path or an ots filename).
+    CLI (via `src/anchor_ots.py`). witness is the .ots path when a real proof
+    was made, else None. proof_path is a local copy of that proof, or a local anchor file
+    created when no proof could be made.
     """
     # Try OTS stamp via CLI wrapper
     ots_path = anchor_ots.stamp_hash(content_hash, ANCHOR_DIR)

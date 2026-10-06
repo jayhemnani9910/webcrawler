@@ -8,6 +8,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Seconds before an archivebox subprocess is abandoned, so one hung archive cannot stall a crawl.
+ARCHIVEBOX_TIMEOUT = 300
+
 def archive_url(url: str, archivebox_args: Optional[list]=None) -> dict:
     """Call ArchiveBox CLI to archive a single URL. Returns parsed JSON if available, else a minimal dict.
 
@@ -20,25 +23,29 @@ def archive_url(url: str, archivebox_args: Optional[list]=None) -> dict:
     last_exc = None
     for attempt in range(3):
         try:
-            p = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            p = subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=ARCHIVEBOX_TIMEOUT)
             out = p.stdout.strip()
             try:
                 return json.loads(out)
             except Exception:
                 return {"raw_output": out}
-        except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError) as e:
             last_exc = e
             # try without --json as fallback on first failure
             if attempt == 0:
                 try:
-                    p = subprocess.run(["archivebox", "add", url], capture_output=True, text=True, check=True)
+                    p = subprocess.run(
+                        ["archivebox", "add", url], capture_output=True, text=True, check=True, timeout=ARCHIVEBOX_TIMEOUT
+                    )
                     return {"raw_output": p.stdout}
                 except Exception as e2:
                     last_exc = e2
             # wait briefly before retrying
             time.sleep(1 + attempt)
             continue
-    return {"error": str(last_exc), "stderr": getattr(last_exc, 'stderr', '')}
+    # Empty, not an error dict: callers treat any non-empty dict as a successful archive.
+    logger.warning('archivebox add failed for %s: %s %s', url, last_exc, getattr(last_exc, 'stderr', ''))
+    return {}
 
 
 def read_archived_html_from_meta(meta: dict, url: str) -> str:
@@ -53,26 +60,6 @@ def read_archived_html_from_meta(meta: dict, url: str) -> str:
         if p.is_file():
             try:
                 return p.read_text(encoding='utf-8', errors='replace')
-            except Exception:
-                continue
-    # fallback: try environment variables commonly used with ArchiveBox
-    env_dirs = [os.environ.get('ARCHIVEBOX_OUTPUT_DIR'), os.environ.get('ARCHIVEBOX_DIR'), os.environ.get('ARCHIVEBOX')]
-    # filter None
-    env_dirs = [d for d in env_dirs if d]
-    # also check ~/ArchiveBox
-    env_dirs.append(str(Path.home() / 'ArchiveBox'))
-    for d in env_dirs:
-        if not d:
-            continue
-        pdir = Path(d)
-        if not pdir.exists():
-            continue
-        # search for recent HTML files that include the URL
-        for path in pdir.rglob('*.html'):
-            try:
-                txt = path.read_text(encoding='utf-8', errors='replace')
-                if url in txt or url.replace('https://', '').replace('http://', '') in txt:
-                    return txt
             except Exception:
                 continue
     return ''
@@ -98,7 +85,9 @@ def list_archives_json() -> list:
         except Exception as e:
             logger.warning('archivebox index at %s could not be read: %s', idx_path, e)
     try:
-        p = subprocess.run(["archivebox", "list", "--json"], capture_output=True, text=True, check=True)
+        p = subprocess.run(
+            ["archivebox", "list", "--json"], capture_output=True, text=True, check=True, timeout=ARCHIVEBOX_TIMEOUT
+        )
         out = p.stdout.strip()
         try:
             return json.loads(out)
@@ -113,28 +102,15 @@ def find_archive_entry_for_url(url: str) -> dict:
     """Try to find the best matching archive entry for `url` in ArchiveBox's index."""
     entries = list_archives_json()
     # entries are typically dicts with 'url', 'out_path', 'timestamp' etc.
-    # prioritize exact url match, then substring match, then newest
-    exact = None
-    candidates = []
+    # Exact matches only (ignoring a trailing slash). A substring match handed a
+    # subpage the site root's snapshot, which was then stored as that page.
     for e in entries:
         try:
             u = e.get('url') or e.get('source_url') or ''
-            if not u:
-                continue
-            # normalize slight differences (trailing slash)
-            if u.rstrip('/') == url.rstrip('/'):
-                exact = e
-                break
-            if url in u or u in url:
-                candidates.append(e)
+            if u and u.rstrip('/') == url.rstrip('/'):
+                return e
         except Exception:
             continue
-    if exact:
-        return exact
-    if candidates:
-        # pick newest by timestamp if available
-        candidates.sort(key=lambda x: x.get('timestamp') or x.get('date') or 0, reverse=True)
-        return candidates[0]
     return {}
 
 
@@ -167,7 +143,6 @@ def get_archived_html(url: str) -> (str, dict):
                     return p.read_text(encoding='utf-8', errors='replace'), entry
                 except Exception:
                     pass
-    # fallback to scanning common ArchiveBox output dirs for a file that contains the URL
     html = read_archived_html_from_meta(entry, url)
     return (html, entry) if html else ('', entry)
 

@@ -53,9 +53,8 @@ def main():
         conn.close()
         return
     if args.cmd == 'proof-worker':
-        from .workers.proof_upgrader import run_loop, run_once
-        # run once then run loop with default hourly interval
-        run_once()
+        from .workers.proof_upgrader import run_loop
+        # run_loop runs a pass right away, then hourly
         try:
             run_loop(interval_seconds=3600)
         except (KeyboardInterrupt, SystemExit):
