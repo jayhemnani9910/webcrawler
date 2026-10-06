@@ -38,7 +38,8 @@ def stamp_hash(content_hash: str, anchor_dir: Path) -> Optional[str]:
         try:
             res = subprocess.run(['ots', 'stamp', str(tf)], capture_output=True, text=True)
             if res.returncode == 0:
-                ots_path = tf.with_suffix('.ots')
+                # `ots stamp x.txt` writes x.txt.ots, not x.ots.
+                ots_path = tf.with_name(tf.name + '.ots')
                 if ots_path.exists():
                     return str(ots_path)
         except Exception:

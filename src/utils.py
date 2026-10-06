@@ -27,7 +27,10 @@ def normalize_url(url: str, root_netloc: str) -> str:
     default_port = {'http': ':80', 'https': ':443'}.get(scheme)
     netloc_cmp = netloc[:-len(default_port)] if default_port and netloc.endswith(default_port) else netloc
     root_cmp = root_netloc[:-len(default_port)] if default_port and root_netloc.endswith(default_port) else root_netloc
-    if netloc_cmp == root_cmp or netloc_cmp.endswith('.' + root_cmp):
+    # Fold only "www." into the root host. Folding every subdomain gave
+    # blog.example.com/about and example.com/about one normalized_url, and the
+    # unique key on it dropped the second page.
+    if netloc_cmp.removeprefix('www.') == root_cmp.removeprefix('www.'):
         netloc = root_netloc
     return urlunparse((scheme, netloc, path.rstrip('/') or '/', '', query, ''))
 
@@ -84,8 +87,7 @@ def is_same_site(netloc: str, root_netloc: str) -> bool:
     """True when netloc is root_netloc or a subdomain of it.
 
     A plain endswith() lets "notexample.com" pass against "example.com", so the
-    subdomain arm needs the leading dot. normalize_url already applies this rule;
-    this is the same test for callers that only need the yes/no answer.
+    subdomain arm needs the leading dot.
     """
     netloc = (netloc or '').lower()
     root_netloc = (root_netloc or '').lower()

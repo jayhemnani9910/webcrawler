@@ -5,7 +5,10 @@ for sign/verify operations; otherwise fall back to local Ed25519 keys via
 PyNaCl or a file-backed HMAC fallback.
 """
 from pathlib import Path
+import logging
 import os
+
+logger = logging.getLogger(__name__)
 try:
     from nacl.signing import SigningKey, VerifyKey
     from nacl.encoding import HexEncoder
@@ -13,7 +16,8 @@ try:
 except Exception:
     _HAS_LIBSODIUM = False
 
-KEY_DIR = Path(os.environ.get('WPS_KEY_DIR', 'keys'))
+# keys_kms.py and .env.prod.example use WPS_KEYS_DIR; accept either name.
+KEY_DIR = Path(os.environ.get('WPS_KEY_DIR') or os.environ.get('WPS_KEYS_DIR') or 'keys')
 SK_PATH = KEY_DIR / 'ed25519_sk.hex'
 VK_PATH = KEY_DIR / 'ed25519_vk.hex'
 
@@ -33,14 +37,15 @@ def ensure_keypair(key_id: str = None):
         vk_path = VK_PATH
         hmac_path = KEY_DIR / 'fallback_hmac.key'
     if _HAS_LIBSODIUM:
-        if not sk_path.exists() or not vk_path.exists():
-            sk = SigningKey.generate()
-            vk = sk.verify_key
-            sk_path.write_text(sk.encode(encoder=HexEncoder).decode('utf-8'))
-            vk_path.write_text(vk.encode(encoder=HexEncoder).decode('utf-8'))
+        # Generate only when the private key is missing. A missing public key is
+        # rebuilt from the private one; regenerating would change the node's identity.
+        if not sk_path.exists():
+            sk_path.write_text(SigningKey.generate().encode(encoder=HexEncoder).decode('utf-8'))
         os.chmod(sk_path, 0o600)
         sk = SigningKey(sk_path.read_text().strip(), encoder=HexEncoder)
         vk = sk.verify_key
+        if not vk_path.exists():
+            vk_path.write_text(vk.encode(encoder=HexEncoder).decode('utf-8'))
         return sk, vk
     else:
         # Fallback: use a symmetric HMAC-like key file for signing (not cryptographically the same)
@@ -102,8 +107,8 @@ def sign_bytes(data: bytes) -> str:
             sig = provider.sign(key_id, data)
             # provider.sign may return bytes
             return sig.hex() if isinstance(sig, (bytes, bytearray)) else sig
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning('KMS sign failed for key %s, signing with the local key: %s', key_id, e)
     # local fallback
     kp = ensure_keypair()
     if _HAS_LIBSODIUM:
@@ -123,8 +128,10 @@ def verify_bytes(data: bytes, sig_hex: str) -> bool:
     key_id = os.environ.get('WPS_KMS_KEY_ID') or os.environ.get('AWS_KMS_KEY_ID')
     if provider and key_id:
         try:
-            # provider.verify should return True/False
-            return provider.verify(key_id, data, bytes.fromhex(sig_hex) if isinstance(sig_hex, str) else sig_hex)
+            # provider.verify should return True/False. On False, still try the local
+            # key: sign_bytes falls back to it when the KMS sign fails.
+            if provider.verify(key_id, data, bytes.fromhex(sig_hex) if isinstance(sig_hex, str) else sig_hex):
+                return True
         except Exception:
             pass
     kp = ensure_keypair()

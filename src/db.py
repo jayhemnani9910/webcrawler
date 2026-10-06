@@ -13,6 +13,9 @@ DB_PATH = Path(os.environ.get('WPS_DB_PATH') or Path(__file__).resolve().parents
 def get_conn():
     conn = sqlite3.connect(str(DB_PATH))
     conn.row_factory = sqlite3.Row
+    # Per connection in SQLite; setting it only inside init_db left every other
+    # connection with foreign keys and ON DELETE CASCADE off.
+    conn.execute('PRAGMA foreign_keys=ON')
     return conn
 
 def init_db():
@@ -179,17 +182,6 @@ def init_db():
         ''')
     except Exception:
         pass
-    # add proof_path and proof_verified for storing proof artifacts
-    if 'proof_path' not in pv_cols:
-        try:
-            cur.execute("ALTER TABLE PageVersions ADD COLUMN proof_path TEXT")
-        except Exception:
-            pass
-    if 'proof_verified' not in pv_cols:
-        try:
-            cur.execute("ALTER TABLE PageVersions ADD COLUMN proof_verified INTEGER DEFAULT 0")
-        except Exception:
-            pass
     conn.commit()
     conn.close()
 
@@ -241,19 +233,27 @@ def insert_page_version(site_id, page_id, archived_at, content_text, content_has
     return vid
 
 
-def search_page_versions(query_text, limit=10):
+def search_page_versions(query_text, limit=10, site_id=None, date_prefix=None):
+    """Full-text search. site_id and date_prefix (e.g. '2026-09') filter in SQL,
+    before the limit, so a filtered search is not cut down to the top `limit` overall."""
     conn = get_conn()
     cur = conn.cursor()
+    filters, params = '', []
+    if site_id is not None:
+        filters += ' AND site_id = ?'
+        params.append(site_id)
+    if date_prefix:
+        filters += ' AND archived_at LIKE ?'
+        params.append(date_prefix + '%')
     try:
         # use bm25 ranking if available; return site_id and archived_at for faceting
-        q = "SELECT page_version_id, content_hash, site_id, archived_at, snippet(PageVersionsFTS, 0, '<b>', '</b>', '...', 10) as snippet FROM PageVersionsFTS WHERE PageVersionsFTS MATCH ? ORDER BY bm25(PageVersionsFTS) LIMIT ?"
-        # If caller provided site/date filters encoded into query_text (handled by UI), they will be included in MATCH
-        rows = cur.execute(q, (query_text, limit)).fetchall()
+        q = "SELECT page_version_id, content_hash, site_id, archived_at, snippet(PageVersionsFTS, 0, '<b>', '</b>', '...', 10) as snippet FROM PageVersionsFTS WHERE PageVersionsFTS MATCH ?" + filters + " ORDER BY bm25(PageVersionsFTS) LIMIT ?"
+        rows = cur.execute(q, (query_text, *params, limit)).fetchall()
         conn.close()
         return rows
     except Exception:
         # fallback: basic LIKE search
-        rows = cur.execute("SELECT id as page_version_id, content_hash, substr(content_text, 1, 200) as snippet, site_id, archived_at FROM PageVersions WHERE content_text LIKE ? LIMIT ?", (f'%{query_text}%', limit)).fetchall()
+        rows = cur.execute("SELECT id as page_version_id, content_hash, substr(content_text, 1, 200) as snippet, site_id, archived_at FROM PageVersions WHERE content_text LIKE ?" + filters + " LIMIT ?", (f'%{query_text}%', *params, limit)).fetchall()
         conn.close()
         return rows
 

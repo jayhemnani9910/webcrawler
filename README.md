@@ -1,8 +1,8 @@
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Open-2ea44f?style=for-the-badge)](https://jayhemnani9910.github.io/webcrawler/)
+[![Project page](https://img.shields.io/badge/Project%20page-Open-2ea44f?style=for-the-badge)](https://jayhemnani9910.github.io/webcrawler/)
 
 # Website Archiver & Change Detection System
 
-A production-ready website monitoring and archival system built on ArchiveBox. Automatically discovers, snapshots, and tracks changes across websites with full-text search, cryptographic verification, and distributed storage capabilities.
+A website monitoring and archival system built on ArchiveBox. Automatically discovers, snapshots, and tracks changes across websites with full-text search and cryptographic verification.
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![Flask](https://img.shields.io/badge/Flask-API-green)
@@ -10,16 +10,15 @@ A production-ready website monitoring and archival system built on ArchiveBox. A
 
 ## Overview
 
-This project implements an intelligent website watcher that combines ArchiveBox's powerful archival capabilities with advanced change detection, distributed storage, and cryptographic verification. Perfect for compliance monitoring, research archival, competitive intelligence, or preserving important web content.
+This project implements an intelligent website watcher that combines ArchiveBox's archival capabilities with change detection and cryptographic verification. Perfect for compliance monitoring, research archival, competitive intelligence, or preserving important web content.
 
 ## Key Features
 
 - **Intelligent Discovery**: Automatic sitemap parsing and internal link crawling with robots.txt compliance
 - **Change Detection**: Content-hash based change tracking with stable diff algorithms
 - **Full-Text Search**: SQLite FTS5 powered search across all archived versions
-- **Distributed Storage**: Optional IPFS integration for decentralized content preservation
-- **Cryptographic Verification**: Merkle trees for authenticity (multi-chain content anchoring exists as unwired scaffolding in `src/anchor_chain.py` and is not called from anywhere)
-- **Production Ready**: Systemd timers, Docker support, Prometheus metrics, health checks
+- **Cryptographic Verification**: Ed25519-signed page versions, Merkle trees, OpenTimestamps anchoring
+- **Deployable**: Systemd timers, Docker support, Prometheus metrics, health checks
 - **Web Interface**: Flask-based UI for search, monitoring, and site management
 - **Automated Scheduling**: Configurable intervals (default: every 2 hours)
 
@@ -30,9 +29,9 @@ This project implements an intelligent website watcher that combines ArchiveBox'
 | **Core** | Python 3.10+, ArchiveBox, SQLite (FTS5) |
 | **Web** | Flask, BeautifulSoup4, lxml, readability-lxml |
 | **Scheduling** | APScheduler, Systemd timers |
-| **Crypto** | PyNaCl, Cryptography, Merkle trees |
+| **Crypto** | PyNaCl, Merkle trees, OpenTimestamps |
 | **Monitoring** | Prometheus, Health checks |
-| **Storage** | IPFS (optional), SQLite |
+| **Storage** | SQLite |
 
 ## Quick Start
 
@@ -97,9 +96,9 @@ webcrawler/
 │   ├── crawler.py           # Discovery and orchestration
 │   ├── archivebox_interface.py
 │   ├── db.py                # SQLite schema
-│   ├── crypto.py            # Cryptographic utilities
-│   ├── merkle.py            # Merkle tree implementation
-│   └── ipfs_interface.py    # IPFS storage layer
+│   ├── crypto_asym.py       # Ed25519 signing (KMS or local keys)
+│   ├── anchor_ots.py        # OpenTimestamps anchoring
+│   └── merkle.py            # Merkle tree implementation
 ├── systemd/                 # Service units
 ├── docker-compose.yml
 └── scripts/backup_db.sh

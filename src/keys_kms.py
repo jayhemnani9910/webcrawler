@@ -24,7 +24,7 @@ class KMSProvider:
 
 class FileKeyProvider(KMSProvider):
     def __init__(self, keys_dir: Optional[str] = None):
-        self.keys_dir = Path(keys_dir or os.environ.get('WPS_KEYS_DIR', 'keys'))
+        self.keys_dir = Path(keys_dir or os.environ.get('WPS_KEYS_DIR') or os.environ.get('WPS_KEY_DIR') or 'keys')
         self.keys_dir.mkdir(parents=True, exist_ok=True)
 
     def _key_path(self, key_id: str) -> Path:
@@ -148,8 +148,11 @@ def get_provider() -> KMSProvider:
 
             logger.info('Using Vault KMS provider')
             return VaultProvider()
-    except Exception:
+    except ImportError:
         pass
+    except Exception as e:
+        # Vault is configured but could not be set up; say so before falling back.
+        logger.error('Vault KMS provider unavailable, using file-backed keys: %s', e)
 
     logger.info('No cloud KMS detected; using file-backed keys')
     return FileKeyProvider()

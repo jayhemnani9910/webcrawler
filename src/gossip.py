@@ -22,4 +22,6 @@ def broadcast_change(peers, message, timeout=5):
             tasks.append(_send_to_peer(host, port, message, timeout=timeout))
         results = await asyncio.gather(*tasks, return_exceptions=True)
         return results
-    return asyncio.get_event_loop().run_until_complete(_run())
+    # asyncio.run, not get_event_loop(): the latter raises with no current loop
+    # in worker threads and on Python 3.14+.
+    return asyncio.run(_run())

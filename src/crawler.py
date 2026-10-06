@@ -23,6 +23,12 @@ USER_AGENT = 'LocalSiteWatcher/1.0 (+https://example.org)'
 def fetch_robots(root_url):
     try:
         r = requests.get(urljoin(root_url, '/robots.txt'), timeout=10, headers={'User-Agent': USER_AGENT})
+        # Same rules as RobotFileParser.read(): 401/403 mean stay out, any other
+        # failure means no rules. An error page's body is not a robots.txt.
+        if r.status_code in (401, 403):
+            return 'User-agent: *\nDisallow: /'
+        if r.status_code != 200:
+            return ''
         return r.text
     except Exception:
         return ''
@@ -173,7 +179,7 @@ class SiteWatcher:
             if parser:
                 try:
                     if _HAS_REPPY:
-                        if not parser.allowed(ua, root):
+                        if not parser.allowed(root, ua):
                             return
                     else:
                         if not parser.can_fetch(ua, root):
@@ -208,19 +214,22 @@ class SiteWatcher:
             if parser:
                 try:
                     if _HAS_REPPY:
-                        if not parser.allowed(ua, url):
+                        if not parser.allowed(url, ua):
                             continue
                     else:
                         if not parser.can_fetch(ua, url):
                             continue
                 except Exception:
                     pass
-            # call ArchiveBox
+            # call ArchiveBox. Every request to the site waits out its crawl delay,
+            # not only the homepage one.
+            self._maybe_sleep(site_id, crawl_delay)
             try:
                 meta = archive_url(url)
             except Exception as e:
                 logger.exception('archive_url failed for %s: %s', url, e)
                 meta = {}
+            self._last_request_time[site_id] = time.time()
             # best-effort: get archived time
             archived_at = datetime.utcnow().isoformat()
             # try to locate HTML inside ArchiveBox output if metadata contains path
@@ -244,7 +253,9 @@ class SiteWatcher:
                             lm = datetime.fromisoformat(lm).strftime('%a, %d %b %Y %H:%M:%S GMT')
                         except ValueError:
                             lm = None
+                self._maybe_sleep(site_id, crawl_delay)
                 status, resp_headers, body = http_get(url, headers={'User-Agent': ua}, last_modified=lm, retries=2)
+                self._last_request_time[site_id] = time.time()
                 if status == 200 and body:
                     html = body
                 elif status == 304:
@@ -321,7 +332,7 @@ class SiteWatcher:
         for s in sites:
             try:
                 self.crawl_site(s)
-                cur.execute("UPDATE Sites SET last_crawled=? WHERE id=?", (datetime.utcnow().isoformat(), s['id']))
+                cur.execute("UPDATE Sites SET last_crawled=?, status='ok' WHERE id=?", (datetime.utcnow().isoformat(), s['id']))
                 conn.commit()
             except Exception:
                 # Without this the only trace of a failed crawl is status='error'

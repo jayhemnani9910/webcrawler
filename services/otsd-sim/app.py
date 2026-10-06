@@ -20,6 +20,7 @@ from pathlib import Path
 import os
 import time
 import base64
+import re
 import uuid
 
 app = Flask(__name__)
@@ -32,6 +33,18 @@ os.makedirs(STORE, exist_ok=True)
 # src/anchor_ots.py calls.
 DATA_DIR = Path(os.environ.get('OTSD_DATA_DIR', '/data/ots'))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+HEX_HASH = re.compile(r'[0-9a-fA-F]{1,128}')
+
+
+def _data_path(path):
+    """The resolved path if it lies inside DATA_DIR, else None.
+
+    Paths come from the request body, so without this check /fetch read and
+    /upgrade appended to any file the process could reach.
+    """
+    p = Path(path).resolve()
+    return p if p.is_relative_to(DATA_DIR.resolve()) else None
 
 
 @app.route('/ots/submit', methods=['POST'])
@@ -60,6 +73,8 @@ def stamp():
     h = data.get('hash')
     if not h:
         return jsonify({'error': 'hash required'}), 400
+    if not isinstance(h, str) or not HEX_HASH.fullmatch(h):
+        return jsonify({'error': 'hash must be hex'}), 400
     ts = int(time.time())
     fname = DATA_DIR / f"{h}.{ts}.ots"
     fname.write_text(h)
@@ -74,7 +89,9 @@ def upgrade():
     path = data.get('ots_path')
     if not path:
         return jsonify({'error': 'ots_path required'}), 400
-    p = Path(path)
+    p = _data_path(path)
+    if p is None:
+        return jsonify({'error': 'path outside data dir'}), 400
     if not p.exists():
         return jsonify({'error': 'not found'}), 404
     # simulate upgrade by appending a line
@@ -90,7 +107,9 @@ def fetch():
     path = data.get('ots_path') or data.get('fname')
     if not path:
         return jsonify({'error': 'ots_path or fname required'}), 400
-    p = Path(path)
+    p = _data_path(path)
+    if p is None:
+        return jsonify({'error': 'path outside data dir'}), 400
     if not p.exists():
         return jsonify({'error': 'not found'}), 404
     # return base64-encoded content for safe transport
@@ -108,7 +127,9 @@ def verify():
     # as a 500 rather than the 400 the other routes return for the same mistake.
     if not path:
         return jsonify({'error': 'ots_path required'}), 400
-    p = Path(path)
+    p = _data_path(path)
+    if p is None:
+        return jsonify({'error': 'path outside data dir'}), 400
     if not p.exists():
         return jsonify({'error': 'not found'}), 404
     return jsonify({'status': 'ok', 'verified': True})
