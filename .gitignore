@@ -19,8 +19,9 @@ env/
 ENV/
 
 # Environment variables
-.env
-.env.local
+.env*
+!.env.example
+!.env.prod.example
 
 # IDE/Editor
 .vscode/
@@ -50,6 +51,11 @@ docker-compose.override.yml
 # Keys/Secrets
 keys/
 secrets/
+
+# Runtime output
+anchors/
+archivebox_data/
+.ruff_cache/
 
 # OS
 .DS_Store
