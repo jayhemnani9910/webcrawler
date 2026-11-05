@@ -9,7 +9,6 @@ import shutil
 import subprocess
 from pathlib import Path
 from typing import Optional
-import time
 import os
 import requests
 import base64
