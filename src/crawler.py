@@ -95,7 +95,7 @@ class SiteWatcher:
         logger.info('Added site %s as id=%s', root, site_id)
         # initial discovery
         sitemap_urls = parse_sitemap_urls(root)
-        candidates = set(sitemap_urls)
+        candidates = {root, *sitemap_urls}
         # fetch robots.txt and homepage and extract a few internal links
         # prefer using reppy to fetch/parse robots if available
         crawl_delay = 1
@@ -172,7 +172,7 @@ class SiteWatcher:
             parser = None
         # refresh candidate list
         sitemap_urls = parse_sitemap_urls(root)
-        candidates = set(sitemap_urls)
+        candidates = {root, *sitemap_urls}
         try:
             # respect robots and crawl-delay before fetching
             ua = site_row['user_agent'] or USER_AGENT
