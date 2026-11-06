@@ -1,117 +1,97 @@
-[![Project page](https://img.shields.io/badge/Project%20page-Open-2ea44f?style=for-the-badge)](https://jayhemnani9910.github.io/webcrawler/)
+# webcrawler
 
-# Website Archiver & Change Detection System
+![The web UI: a watched site, its pages, and a search that finds both versions of a changed page](docs/demo.gif)
 
-A website monitoring and archival system built on ArchiveBox. Automatically discovers, snapshots, and tracks changes across websites with full-text search and cryptographic verification.
-
-![Python](https://img.shields.io/badge/python-3.10%2B-blue)
-![Flask](https://img.shields.io/badge/Flask-API-green)
-![Docker](https://img.shields.io/badge/Docker-ready-blue)
-
-## Overview
-
-This project implements an intelligent website watcher that combines ArchiveBox's archival capabilities with change detection and cryptographic verification. Perfect for compliance monitoring, research archival, competitive intelligence, or preserving important web content.
-
-## Key Features
-
-- **Intelligent Discovery**: Automatic sitemap parsing and internal link crawling with robots.txt compliance
-- **Change Detection**: Content-hash based change tracking with stable diff algorithms
-- **Full-Text Search**: SQLite FTS5 powered search across all archived versions
-- **Cryptographic Verification**: Ed25519-signed page versions, Merkle trees, OpenTimestamps anchoring
-- **Deployable**: Systemd timers, Docker support, Prometheus metrics, health checks
-- **Web Interface**: Flask-based UI for search, monitoring, and site management
-- **Automated Scheduling**: Configurable intervals (default: every 2 hours)
-
-## Technology Stack
-
-| Category | Technologies |
-|----------|-------------|
-| **Core** | Python 3.10+, ArchiveBox, SQLite (FTS5) |
-| **Web** | Flask, BeautifulSoup4, lxml, readability-lxml |
-| **Scheduling** | APScheduler, Systemd timers |
-| **Crypto** | PyNaCl, Merkle trees, OpenTimestamps |
-| **Monitoring** | Prometheus, Health checks |
-| **Storage** | SQLite |
-
-## Quick Start
+Watch the websites you pick, keep every version of every page, and search the whole history.
 
 ```bash
-# Prerequisites: Install ArchiveBox
-pip install archivebox && archivebox init
-
-# Clone and install
-git clone https://github.com/jayhemnani9910/webcrawler.git
-cd webcrawler
-pip install -r requirements.txt
-
-# Add a site and run
-python -m src.main add-site https://example.com
-python -m src.main run
-
-# Search archived content
-python -m src.main search "query"
-
-# Launch web UI
-python -m src.main web  # http://localhost:1212
+git clone https://github.com/jayhemnani9910/webcrawler.git && cd webcrawler && pip install -r requirements.txt
 ```
 
-## Production Deployment
+[![CI](https://github.com/jayhemnani9910/webcrawler/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/jayhemnani9910/webcrawler/actions/workflows/ci.yml)
 
-### Docker
+In the GIF I crawled a three-page test site on localhost, changed a price on the menu page from 4 to 6 dollars, and crawled again. The search for "sourdough" finds both versions.
+
+## Usage
 
 ```bash
-docker compose up -d --build
-
-# Production with Prometheus + Grafana
-docker compose -f docker-compose.prod.yml up -d
+python -m src.main add-site https://example.com   # find pages from the sitemap and homepage links
+python -m src.main run                            # crawl now, then every 2 hours (Ctrl-C to stop)
+python -m src.main status                         # sites, page counts, last crawl
+python -m src.main search "query"                 # full-text search over every stored version
+python -m src.main web                            # web UI on http://127.0.0.1:1212
 ```
 
-### Systemd
+Data goes to `watcher.db` in the repo root. Set `WPS_DB_PATH` to put it somewhere else. `.env.example` lists every variable the code reads.
+
+To run the web UI in Docker instead:
 
 ```bash
-sudo ./install_service.sh
-sudo systemctl enable website-watcher.timer
-sudo systemctl start website-watcher.timer
+docker build -t webcrawler . && docker run --rm -p 1212:1212 webcrawler
 ```
 
-## API
+## How it works
+
+1. `add-site` reads `robots.txt`, `/sitemap.xml` and `/sitemap_index.xml`, and up to 30 same-site links from the homepage. Links to `/login`, `/admin`, `/signup` and `/search` are skipped.
+2. Each crawl asks ArchiveBox (`archivebox add`) to snapshot the page and reads the HTML back from its index. If ArchiveBox isn't installed or has nothing, it fetches the page directly with `If-Modified-Since`.
+3. Pages that `robots.txt` disallows are skipped, and page fetches wait out the site's `Crawl-delay` (1 second if none).
+4. readability-lxml pulls out the main text, and the text is hashed with SHA-256. Same hash as last time means no new version.
+5. A changed page gets a new row in `PageVersions`, and the added and removed lines go into `Changes`, with any new image URLs.
+6. Each version is signed with Ed25519 (PyNaCl, key in `keys/`), or with AWS KMS or Vault if configured, and gets a Merkle root over the previous and current hash.
+7. The hash is timestamped with OpenTimestamps if the `ots` CLI or `OTSD_URL` is available. Otherwise a plain local anchor file is written to `anchors/`.
+8. Text goes into a SQLite FTS5 index. Search ranks with bm25 and returns highlighted snippets.
+
+## Web UI and API
+
+| Route | What it does |
+|-------|--------------|
+| `/` | Watched sites with page counts and last crawl time |
+| `/site/<id>` | Pages of a site and how many versions each has |
+| `/site/<id>/edit` | Turn a site on or off, set its user agent and crawl delay |
+| `/search` | Search with site and month facets, paginated |
+| `/api/search?q=` | Same search as JSON |
+| `/health` | `{"status": "ok"}` when the database answers |
+| `/metrics` | Prometheus metrics (a search request counter) |
+| `/admin/*` | Counts and crisis mode, behind the `X-Admin-Token` header. Off unless `WPS_ADMIN_TOKEN` is set |
+
+[docs/API.md](docs/API.md) has every route, including the experimental Merkle sync endpoints (`/api/merkle/push`, `/api/merkle/pull`).
+
+## Running it on a schedule
+
+`systemd/` has a service and a timer that fires every 2 hours. `sudo ./install_service.sh` installs both, creates a `website-watcher` user and keeps data in `/var/lib/website-watcher`. `CRON.md` has a crontab line if you'd rather use cron.
+
+`scripts/backup_db.sh` writes a gzipped SQL dump of the database to `backups/`.
+
+## Tests
 
 ```bash
-# Search endpoint
-GET /api/search?q={query}
-
-# Health check
-GET /health
-
-# Prometheus metrics
-GET /metrics
+pip install pytest ruff
+ruff check .
+pytest -q
 ```
 
-## Project Structure
+CI runs the same on Python 3.10 and 3.11. Tests use a temporary database, never `watcher.db`.
+
+## Project layout
 
 ```
-webcrawler/
-├── src/
-│   ├── main.py              # CLI and scheduler
-│   ├── crawler.py           # Discovery and orchestration
-│   ├── archivebox_interface.py
-│   ├── db.py                # SQLite schema
-│   ├── crypto_asym.py       # Ed25519 signing (KMS or local keys)
-│   ├── anchor_ots.py        # OpenTimestamps anchoring
-│   └── merkle.py            # Merkle tree implementation
-├── systemd/                 # Service units
-├── docker-compose.yml
-└── scripts/backup_db.sh
+src/
+  main.py                  CLI and scheduler
+  crawler.py               discovery, robots.txt, crawl loop, change detection
+  archivebox_interface.py  calls the archivebox CLI and reads its index
+  db.py                    SQLite schema and FTS5 search
+  ui.py                    Flask web UI and API
+  crypto_asym.py           Ed25519 signing, KMS or local keys
+  anchor.py, anchor_ots.py OpenTimestamps or local anchor files
+  merkle*.py, gossip*.py, p2p.py  experimental multi-node sync
+systemd/                   service and timer
+tests/
 ```
 
-## Use Cases
+## Contributing
 
-- Compliance monitoring and regulatory tracking
-- Research archival and citation preservation
-- Competitive intelligence
-- Content preservation before deletion
-- Change auditing with verifiable records
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-MIT
+MIT, see [LICENSE](LICENSE).

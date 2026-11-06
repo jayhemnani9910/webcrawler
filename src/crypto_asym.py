@@ -10,7 +10,7 @@ import os
 
 logger = logging.getLogger(__name__)
 try:
-    from nacl.signing import SigningKey, VerifyKey
+    from nacl.signing import SigningKey
     from nacl.encoding import HexEncoder
     _HAS_LIBSODIUM = True
 except Exception:
@@ -117,7 +117,8 @@ def sign_bytes(data: bytes) -> str:
         return sig.hex()
     else:
         # fallback: HMAC-SHA256 hex
-        import hmac, hashlib
+        import hmac
+        import hashlib
         key = kp
         return hmac.new(key, data, hashlib.sha256).hexdigest()
 
@@ -143,7 +144,8 @@ def verify_bytes(data: bytes, sig_hex: str) -> bool:
         except Exception:
             return False
     else:
-        import hmac, hashlib
+        import hmac
+        import hashlib
         key = kp
         expected = hmac.new(key, data, hashlib.sha256).hexdigest()
         try:

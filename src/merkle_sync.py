@@ -6,7 +6,7 @@ the local MerkleForest. This is a lightweight prototype for cross-node sync.
 """
 import json
 from datetime import datetime
-from typing import List, Dict, Optional
+from typing import List, Dict
 from .merkle_distributed import compute_tree_root_from_blob, merge_forests, MerkleForest
 from .db import get_conn
 from . import crypto_asym

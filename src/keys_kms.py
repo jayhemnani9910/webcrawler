@@ -35,12 +35,14 @@ class FileKeyProvider(KMSProvider):
         if not path.exists():
             raise FileNotFoundError(f'Key {key_id} not found at {path}')
         # naive HMAC-style file-backed signature (for prototype only)
-        import hmac, hashlib
+        import hmac
+        import hashlib
         key = path.read_bytes()
         return hmac.new(key, data, hashlib.sha256).digest()
 
     def verify(self, key_id: str, data: bytes, signature: bytes) -> bool:
-        import hmac, hashlib
+        import hmac
+        import hashlib
         key = self._key_path(key_id).read_bytes()
         expected = hmac.new(key, data, hashlib.sha256).digest()
         return hmac.compare_digest(expected, signature)

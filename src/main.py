@@ -5,6 +5,9 @@ from logging.handlers import RotatingFileHandler
 from apscheduler.schedulers.blocking import BlockingScheduler
 from pathlib import Path
 
+from .crawler import SiteWatcher
+from . import db
+
 # configure root logger with rotating file handler
 LOGDIR = Path(os.getenv("WPS_LOG_DIR", "./logs"))
 LOGDIR.mkdir(parents=True, exist_ok=True)
@@ -14,9 +17,6 @@ handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(name)s %(mes
 root = logging.getLogger()
 root.setLevel(logging.INFO)
 root.addHandler(handler)
-
-from .crawler import SiteWatcher
-from . import db
 
 
 def main():
@@ -28,7 +28,7 @@ def main():
     sub.add_parser('archive-index')
     ai = sub.add_parser('archive-index-set')
     ai.add_argument('path')
-    runp = sub.add_parser('run')
+    sub.add_parser('run')
     sub.add_parser('proof-worker')
     sub.add_parser('status')
     webp = sub.add_parser('web')

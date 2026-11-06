@@ -4,7 +4,6 @@ This module produces simple DID documents and verification helpers using
 Ed25519 keys (via src/crypto_asym.py) or a KMS provider. It is a minimal
 scaffold; production DID methods require formal method spec adherence.
 """
-import json
 from datetime import datetime
 from .crypto_asym import get_public_key_bytes
 

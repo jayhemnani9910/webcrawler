@@ -5,7 +5,6 @@ Creates DB tables: KnowledgeEntities, EntityRelations, SemanticChanges and provi
 """
 from .db import get_conn
 from datetime import datetime
-import os
 import subprocess
 try:
     import spacy

@@ -1,6 +1,7 @@
 import threading
 import time
-import sys, os
+import sys
+import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from src.p2p import P2PNode
 from src.gossip import broadcast_change

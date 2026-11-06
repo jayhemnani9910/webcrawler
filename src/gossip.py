@@ -1,7 +1,6 @@
 """Simple gossip/broadcast prototype using P2PNode send API.
 """
 import asyncio
-import json
 from .p2p import P2PNode
 
 

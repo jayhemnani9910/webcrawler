@@ -3,7 +3,7 @@
 Provides deterministic Merkle root computation and simple proof generation.
 """
 import hashlib
-from typing import List, Tuple
+from typing import List
 
 
 def sha256(b: bytes) -> bytes:
@@ -17,7 +17,7 @@ def merkle_root(leaves: List[bytes]) -> bytes:
     """
     if not leaves:
         return b''
-    nodes = [sha256(l) for l in leaves]
+    nodes = [sha256(leaf) for leaf in leaves]
     while len(nodes) > 1:
         next_nodes = []
         for i in range(0, len(nodes), 2):
@@ -35,7 +35,7 @@ def merkle_proof(leaves: List[bytes], index: int) -> List[bytes]:
     """
     if not leaves:
         return []
-    nodes = [sha256(l) for l in leaves]
+    nodes = [sha256(leaf) for leaf in leaves]
     proof = []
     idx = index
     while len(nodes) > 1:

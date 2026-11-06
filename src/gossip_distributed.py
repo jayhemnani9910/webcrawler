@@ -7,7 +7,6 @@ scaffolding for rapid prototyping; production-grade gossip needs a libp2p
 implementation or another robust pubsub transport.
 """
 import asyncio
-import json
 import logging
 from typing import List, Callable, Optional
 import requests
